@@ -9,7 +9,7 @@ export function AboutPage() {
       <div className="relative pt-24 md:pt-0">
         <div className="h-[60vh] md:h-[80vh] relative overflow-hidden">
           <img
-            src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=2000&q=85"
+            src="https://picsum.photos/seed/about-hero/2000/1200"
             alt="Artist studio"
             className="w-full h-full object-cover"
           />
@@ -31,7 +31,7 @@ export function AboutPage() {
             <FadeIn direction="left">
               <div className="aspect-[3/4] overflow-hidden bg-cream-100 sticky top-32">
                 <img
-                  src="https://images.unsplash.com/photo-1544531585-9847b68c8c86?w=800&q=85"
+                  src="https://picsum.photos/seed/artist-portrait/800/1000"
                   alt="Artist portrait"
                   className="w-full h-full object-cover"
                 />
@@ -117,7 +117,7 @@ export function AboutPage() {
             <FadeIn>
               <div className="aspect-video overflow-hidden bg-cream-100">
                 <img
-                  src="https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=1200&q=85"
+                  src="https://picsum.photos/seed/process1/1200/800"
                   alt="Studio process"
                   className="w-full h-full object-cover"
                 />
@@ -126,7 +126,7 @@ export function AboutPage() {
             <FadeIn delay={0.1}>
               <div className="aspect-video overflow-hidden bg-cream-100">
                 <img
-                  src="https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1200&q=85"
+                  src="https://picsum.photos/seed/process2/1200/800"
                   alt="Materials and tools"
                   className="w-full h-full object-cover"
                 />

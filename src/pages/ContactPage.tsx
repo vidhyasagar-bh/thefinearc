@@ -85,7 +85,7 @@ export function ContactPage() {
               <div className="pt-10">
                 <div className="aspect-[4/3] overflow-hidden bg-cream-100">
                   <img
-                    src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1000&q=85"
+                    src="https://picsum.photos/seed/contact-studio/1000/750"
                     alt="Studio"
                     className="w-full h-full object-cover"
                   />

@@ -16,7 +16,7 @@ export function Hero() {
       {/* Background image with parallax */}
       <motion.div className="absolute inset-0" style={{ y }}>
         <img
-          src="https://images.unsplash.com/photo-1578926375605-eaf7559b1458?w=2000&q=90"
+          src="https://picsum.photos/seed/hero/2000/1200"
           alt="Featured artwork"
           className="w-full h-full object-cover"
         />

@@ -2,12 +2,12 @@ import { InstagramIcon } from '../ui/Icons';
 import { FadeIn } from '../ui/FadeIn';
 
 const instagramPosts = [
-  'https://images.unsplash.com/photo-1578926375605-eaf7559b1458?w=600&q=80',
-  'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=600&q=80',
-  'https://images.unsplash.com/photo-1549887534-1541e9326642?w=600&q=80',
-  'https://images.unsplash.com/photo-1515405295579-ba7b45403062?w=600&q=80',
-  'https://images.unsplash.com/photo-1609767199556-f53e18e58f0e?w=600&q=80',
-  'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=600&q=80',
+  'https://picsum.photos/seed/ig1/600/600',
+  'https://picsum.photos/seed/ig2/600/600',
+  'https://picsum.photos/seed/ig3/600/600',
+  'https://picsum.photos/seed/ig4/600/600',
+  'https://picsum.photos/seed/ig5/600/600',
+  'https://picsum.photos/seed/ig6/600/600',
 ];
 
 export function InstagramSection() {

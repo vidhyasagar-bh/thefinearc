@@ -11,7 +11,7 @@ export function ArtistIntro() {
             <div className="relative">
               <div className="aspect-[4/5] overflow-hidden bg-cream-200">
                 <img
-                  src="https://images.unsplash.com/photo-1544531585-9847b68c8c86?w=1000&q=85"
+                  src="https://picsum.photos/seed/artist-intro/800/1000"
                   alt="The artist at work"
                   className="w-full h-full object-cover"
                 />
