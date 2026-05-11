@@ -1,18 +1,40 @@
+import { Component } from 'react';
+import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
-import { lazy, Suspense } from 'react';
-import { PageLoader } from './components/ui/LoadingSpinner';
+import { HomePage } from './pages/HomePage';
+import { GalleryPage } from './pages/GalleryPage';
+import { ArtworkDetailPage } from './pages/ArtworkDetailPage';
+import { AboutPage } from './pages/AboutPage';
+import { CommissionsPage } from './pages/CommissionsPage';
+import { ContactPage } from './pages/ContactPage';
+import { CartPage } from './pages/CartPage';
+import { CheckoutPage } from './pages/CheckoutPage';
+import { AdminPage } from './pages/AdminPage';
 
-const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
-const GalleryPage = lazy(() => import('./pages/GalleryPage').then(m => ({ default: m.GalleryPage })));
-const ArtworkDetailPage = lazy(() => import('./pages/ArtworkDetailPage').then(m => ({ default: m.ArtworkDetailPage })));
-const AboutPage = lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
-const CommissionsPage = lazy(() => import('./pages/CommissionsPage').then(m => ({ default: m.CommissionsPage })));
-const ContactPage = lazy(() => import('./pages/ContactPage').then(m => ({ default: m.ContactPage })));
-const CartPage = lazy(() => import('./pages/CartPage').then(m => ({ default: m.CartPage })));
-const CheckoutPage = lazy(() => import('./pages/CheckoutPage').then(m => ({ default: m.CheckoutPage })));
-const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-art-white px-6">
+          <div className="text-center space-y-4 max-w-md">
+            <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Error</p>
+            <h1 className="font-serif text-3xl font-light text-art-charcoal">Something went wrong.</h1>
+            <pre className="font-sans text-xs text-red-500 text-left bg-red-50 p-4 rounded overflow-auto">
+              {(this.state.error as Error).message}
+            </pre>
+            <button onClick={() => window.location.reload()} className="font-sans text-sm text-art-muted hover:text-art-charcoal">
+              Reload page →
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function NotFound() {
   return (
@@ -30,23 +52,22 @@ function NotFound() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Toaster
-        position="bottom-center"
-        toastOptions={{
-          style: {
-            background: '#2C2825',
-            color: '#FDFCFA',
-            fontFamily: 'Inter, sans-serif',
-            fontSize: '13px',
-            borderRadius: '0',
-            padding: '12px 20px',
-          },
-          duration: 3000,
-        }}
-      />
-      <Suspense fallback={<PageLoader />}>
-      <AnimatePresence mode="wait">
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Toaster
+          position="bottom-center"
+          toastOptions={{
+            style: {
+              background: '#2C2825',
+              color: '#FDFCFA',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '13px',
+              borderRadius: '0',
+              padding: '12px 20px',
+            },
+            duration: 3000,
+          }}
+        />
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/gallery" element={<GalleryPage />} />
@@ -59,8 +80,7 @@ export default function App() {
           <Route path="/admin" element={<AdminPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </AnimatePresence>
-      </Suspense>
-    </BrowserRouter>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
