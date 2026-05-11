@@ -131,29 +131,29 @@ export function AdminPage() {
     <div className="min-h-screen bg-art-white">
       {/* Top bar */}
       <div className="border-b border-art-pale sticky top-0 bg-art-white z-40">
-        <div className="max-w-7xl mx-auto px-6 md:px-10 flex items-center justify-between h-16">
-          <p className="font-serif text-xl font-light text-art-charcoal">The Fine Arc · Admin</p>
+        <div className="max-w-7xl mx-auto px-4 md:px-10 flex items-center justify-between h-14 md:h-16">
+          <p className="font-serif text-base md:text-xl font-light text-art-charcoal">Fine Arc · Admin</p>
           <a href="/" className="font-sans text-[10px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors">
             View Site
           </a>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 md:px-10 py-10">
+      <div className="max-w-7xl mx-auto px-4 md:px-10 py-6 md:py-10">
         {/* Tabs */}
-        <div className="flex gap-1 mb-10 border-b border-art-pale">
+        <div className="flex mb-8 md:mb-10 border-b border-art-pale">
           {tabs.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 font-sans text-[10px] tracking-widest uppercase px-4 py-3 border-b-2 -mb-px transition-all duration-300 ${
+              className={`flex items-center gap-2 font-sans text-[10px] tracking-widest uppercase px-3 md:px-4 py-3 border-b-2 -mb-px transition-all duration-300 flex-1 md:flex-none justify-center md:justify-start ${
                 tab === t.key
                   ? 'border-art-charcoal text-art-charcoal'
                   : 'border-transparent text-art-muted hover:text-art-charcoal'
               }`}
             >
               {t.icon}
-              {t.label}
+              <span className="hidden sm:inline">{t.label}</span>
             </button>
           ))}
         </div>
@@ -161,12 +161,14 @@ export function AdminPage() {
         {/* Artworks tab */}
         {tab === 'artworks' && (
           <div>
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="font-serif text-2xl font-light text-art-charcoal">
+            <div className="flex items-center justify-between mb-6 md:mb-8">
+              <h2 className="font-serif text-xl md:text-2xl font-light text-art-charcoal">
                 Artworks ({displayArtworks.length})
               </h2>
               <Button size="sm" onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyArtwork); }}>
-                <Plus size={14} strokeWidth={1.5} /> Add Artwork
+                <Plus size={14} strokeWidth={1.5} />
+                <span className="hidden sm:inline">Add Artwork</span>
+                <span className="sm:hidden">Add</span>
               </Button>
             </div>
 
@@ -175,7 +177,7 @@ export function AdminPage() {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-10 p-8 border border-art-pale bg-cream-50 space-y-7"
+                className="mb-8 p-5 md:p-8 border border-art-pale bg-cream-50 space-y-6 md:space-y-7"
               >
                 <h3 className="font-serif text-xl font-light text-art-charcoal">
                   {editingId ? 'Edit Artwork' : 'New Artwork'}
@@ -221,9 +223,9 @@ export function AdminPage() {
                 <Textarea label="Description" value={form.description} onChange={e => update('description', e.target.value)} />
                 <Textarea label="Story (italic quote)" value={form.story} onChange={e => update('story', e.target.value)} />
 
-                <div className="flex gap-4 pt-2">
-                  <Button onClick={handleSave}>{editingId ? 'Save Changes' : 'Add Artwork'}</Button>
-                  <Button variant="secondary" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <Button onClick={handleSave} className="w-full sm:w-auto">{editingId ? 'Save Changes' : 'Add Artwork'}</Button>
+                  <Button variant="secondary" className="w-full sm:w-auto" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
                 </div>
                 {!supabaseConfigured && (
                   <p className="font-sans text-xs text-art-muted">⚠ Running in demo mode. Connect Supabase to persist changes.</p>
@@ -235,13 +237,23 @@ export function AdminPage() {
             <div className="divide-y divide-art-pale">
               {displayArtworks.map(artwork => (
                 <FadeIn key={artwork.id}>
-                  <div className="flex items-center gap-6 py-5">
-                    <div className="w-14 h-14 shrink-0 overflow-hidden bg-cream-100">
+                  <div className="flex items-center gap-4 py-4 md:py-5">
+                    <div className="w-12 h-12 md:w-14 md:h-14 shrink-0 overflow-hidden bg-cream-100">
                       <img src={artwork.images[0]} alt={artwork.title} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-serif text-base text-art-charcoal truncate">{artwork.title}</p>
-                      <p className="font-sans text-xs text-art-muted">{artwork.category} · {artwork.dimensions}</p>
+                      <p className="font-serif text-sm md:text-base text-art-charcoal truncate">{artwork.title}</p>
+                      <p className="font-sans text-xs text-art-muted truncate">{artwork.category} · {artwork.dimensions}</p>
+                      <div className="flex items-center gap-2 mt-1 md:hidden">
+                        <p className="font-sans text-xs text-art-charcoal">{formatPrice(artwork.price)}</p>
+                        <span className={`font-sans text-[9px] tracking-widest uppercase px-2 py-0.5 ${
+                          artwork.availability === 'available' ? 'bg-green-50 text-green-700' :
+                          artwork.availability === 'sold' ? 'bg-red-50 text-red-600' :
+                          'bg-yellow-50 text-yellow-700'
+                        }`}>
+                          {artwork.availability}
+                        </span>
+                      </div>
                     </div>
                     <p className="font-sans text-sm text-art-charcoal hidden md:block">{formatPrice(artwork.price)}</p>
                     <span className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1 hidden md:block ${
@@ -254,15 +266,15 @@ export function AdminPage() {
                     <div className="flex items-center gap-3 shrink-0">
                       <button
                         onClick={() => startEdit(artwork)}
-                        className="text-art-muted hover:text-art-charcoal transition-colors"
+                        className="text-art-muted hover:text-art-charcoal transition-colors p-1"
                       >
-                        <Edit2 size={14} strokeWidth={1.5} />
+                        <Edit2 size={15} strokeWidth={1.5} />
                       </button>
                       <button
                         onClick={() => handleDelete(artwork.id)}
-                        className="text-art-muted hover:text-red-500 transition-colors"
+                        className="text-art-muted hover:text-red-500 transition-colors p-1"
                       >
-                        <Trash2 size={14} strokeWidth={1.5} />
+                        <Trash2 size={15} strokeWidth={1.5} />
                       </button>
                     </div>
                   </div>
