@@ -7,7 +7,7 @@ export function Hero() {
       {/* Background image */}
       <div className="absolute inset-0">
         <img
-          src="https://mvmuqynhqfzwvrfcwcwf.supabase.co/storage/v1/object/public/artwork-images/Hero.jpg"
+          src="https://mvmuqynhqfzwvrfcwcwf.supabase.co/storage/v1/object/public/artwork-images/hero.png"
           alt="Featured artwork"
           className="w-full h-full object-cover"
         />
