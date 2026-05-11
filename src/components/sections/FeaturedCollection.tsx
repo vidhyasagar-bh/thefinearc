@@ -47,53 +47,56 @@ export function FeaturedCollection() {
         </FadeIn>
 
         {/* Mobile carousel — one card at a time */}
-        <div className="md:hidden px-6 relative">
-          <div className="relative overflow-hidden">
-            <AnimatePresence initial={false} custom={direction} mode="popLayout">
-              <motion.div
-                key={index}
-                custom={direction}
-                variants={variants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <ArtworkCard artwork={featured[index]} />
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {/* Arrows + dots row */}
-          <div className="flex items-center justify-between mt-6">
-            <button
-              onClick={() => go(-1)}
-              aria-label="Previous"
-              className="w-10 h-10 flex items-center justify-center border border-art-pale text-art-muted hover:text-art-charcoal hover:border-art-light transition-colors"
-            >
-              <ChevronLeft size={18} strokeWidth={1.5} />
-            </button>
-
-            <div className="flex items-center gap-2">
-              {featured.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
-                  className={`rounded-full transition-all duration-300 ${
-                    i === index ? 'w-5 h-1.5 bg-art-charcoal' : 'w-1.5 h-1.5 bg-art-light'
-                  }`}
-                  aria-label={`Go to slide ${i + 1}`}
-                />
-              ))}
+        <div className="md:hidden px-6">
+          <div className="relative">
+            {/* Card */}
+            <div className="overflow-hidden">
+              <AnimatePresence initial={false} custom={direction} mode="popLayout">
+                <motion.div
+                  key={index}
+                  custom={direction}
+                  variants={variants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <ArtworkCard artwork={featured[index]} />
+                </motion.div>
+              </AnimatePresence>
             </div>
 
-            <button
-              onClick={() => go(1)}
-              aria-label="Next"
-              className="w-10 h-10 flex items-center justify-center border border-art-pale text-art-muted hover:text-art-charcoal hover:border-art-light transition-colors"
-            >
-              <ChevronRight size={18} strokeWidth={1.5} />
-            </button>
+            {/* Arrows overlaid on the image — aspect-[3/4] ghost matches the image exactly */}
+            <div className="absolute top-0 inset-x-0 aspect-[3/4] flex items-center justify-between px-3 pointer-events-none">
+              <button
+                onClick={() => go(-1)}
+                aria-label="Previous"
+                className="pointer-events-auto w-9 h-9 flex items-center justify-center bg-art-white/80 backdrop-blur-sm text-art-charcoal hover:bg-art-white transition-colors shadow-sm"
+              >
+                <ChevronLeft size={16} strokeWidth={1.5} />
+              </button>
+              <button
+                onClick={() => go(1)}
+                aria-label="Next"
+                className="pointer-events-auto w-9 h-9 flex items-center justify-center bg-art-white/80 backdrop-blur-sm text-art-charcoal hover:bg-art-white transition-colors shadow-sm"
+              >
+                <ChevronRight size={16} strokeWidth={1.5} />
+              </button>
+            </div>
+          </div>
+
+          {/* Dots */}
+          <div className="flex items-center justify-center gap-2 mt-5">
+            {featured.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
+                className={`rounded-full transition-all duration-300 ${
+                  i === index ? 'w-5 h-1.5 bg-art-charcoal' : 'w-1.5 h-1.5 bg-art-light'
+                }`}
+                aria-label={`Go to slide ${i + 1}`}
+              />
+            ))}
           </div>
         </div>
 
