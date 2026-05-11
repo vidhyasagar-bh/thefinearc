@@ -6,16 +6,12 @@ import { Button } from '../components/ui/Button';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
-
-
 interface FormData {
   name: string;
   email: string;
   phone: string;
   project_description: string;
-  budget: string;
   size_preferences: string;
-  style_preferences: string;
   color_preferences: string;
 }
 
@@ -24,20 +20,9 @@ const initialForm: FormData = {
   email: '',
   phone: '',
   project_description: '',
-  budget: '',
   size_preferences: '',
-  style_preferences: '',
   color_preferences: '',
 };
-
-const budgetOptions = [
-  'Under £500',
-  '£500 – £1,000',
-  '£1,000 – £2,500',
-  '£2,500 – £5,000',
-  '£5,000+',
-  "Open — let's discuss",
-];
 
 export function CommissionsPage() {
   const [form, setForm] = useState<FormData>(initialForm);
@@ -62,9 +47,9 @@ export function CommissionsPage() {
           email: form.email,
           phone: form.phone || null,
           project_description: form.project_description,
-          budget: form.budget,
+          budget: null,
           size_preferences: form.size_preferences || null,
-          style_preferences: form.style_preferences || null,
+          style_preferences: null,
           color_preferences: form.color_preferences || null,
           status: 'pending',
         });
@@ -106,7 +91,7 @@ export function CommissionsPage() {
         <div className="max-w-8xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
             {[
-              { step: '01', title: 'Enquire', desc: 'Share your vision, your space, and your budget. No obligation at this stage.' },
+              { step: '01', title: 'Enquire', desc: 'Share your vision, your space, and what you have in mind. No obligation at this stage.' },
               { step: '02', title: 'Discuss', desc: "We'll speak about the work — dimensions, mood, materials, timeline." },
               { step: '03', title: 'Create', desc: "The work is made slowly and with care. You'll receive updates along the way." },
               { step: '04', title: 'Deliver', desc: 'Carefully packed, with a certificate of authenticity and care instructions.' },
@@ -163,6 +148,7 @@ export function CommissionsPage() {
                       required
                     />
                   </div>
+
                   <Input
                     label="Phone (optional)"
                     type="tel"
@@ -179,41 +165,12 @@ export function CommissionsPage() {
                     required
                   />
 
-                  <div>
-                    <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-3 font-sans">
-                      Budget
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {budgetOptions.map(opt => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => update('budget', opt)}
-                          className={`font-sans text-[10px] tracking-widest uppercase px-4 py-2.5 border transition-all duration-300 ${
-                            form.budget === opt
-                              ? 'bg-art-charcoal text-art-white border-art-charcoal'
-                              : 'border-art-pale text-art-muted hover:border-art-light hover:text-art-charcoal'
-                          }`}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Input
-                    label="Preferred size (optional)"
-                    value={form.size_preferences}
-                    onChange={e => update('size_preferences', e.target.value)}
-                    placeholder="e.g. Large, around 80 × 100cm"
-                  />
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <Input
-                      label="Style preferences (optional)"
-                      value={form.style_preferences}
-                      onChange={e => update('style_preferences', e.target.value)}
-                      placeholder="e.g. Abstract, loose, painterly"
+                      label="Preferred size (optional)"
+                      value={form.size_preferences}
+                      onChange={e => update('size_preferences', e.target.value)}
+                      placeholder="e.g. Large, around 80 × 100cm"
                     />
                     <Input
                       label="Colour palette (optional)"

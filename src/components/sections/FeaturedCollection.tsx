@@ -31,17 +31,17 @@ export function FeaturedCollection() {
 
         {/* Mobile carousel */}
         <div className="md:hidden">
-          <div className="flex gap-5 overflow-x-auto px-6 pb-8 snap-x snap-mandatory scrollbar-hide">
+          <div className="flex gap-5 overflow-x-auto pl-6 pr-6 pb-8 snap-x snap-mandatory scrollbar-hide scroll-pl-6">
             {featured.map((artwork, i) => (
               <div
                 key={artwork.id}
-                className="flex-none w-[72vw] snap-start"
+                className="flex-none w-[78vw] snap-start"
               >
                 <ArtworkCard artwork={artwork} index={i} />
               </div>
             ))}
-            {/* Trailing space so last card doesn't touch edge */}
-            <div className="flex-none w-6" />
+            {/* Trailing space so last card clears the edge */}
+            <div className="flex-none w-2 shrink-0" />
           </div>
           {/* Scroll hint dots */}
           <div className="flex items-center justify-center gap-1.5 mt-2">
