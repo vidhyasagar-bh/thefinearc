@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Mail } from 'lucide-react';
-import { InstagramIcon } from '../ui/Icons';
 import { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, supabaseConfigured } from '../../lib/supabase';
+import { InstagramIcon } from '../ui/Icons';
 import toast from 'react-hot-toast';
 
 export function Footer() {
@@ -14,10 +14,10 @@ export function Footer() {
     if (!email) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('newsletter_subscribers')
-        .insert({ email });
-      if (error && error.code !== '23505') throw error;
+      if (supabaseConfigured) {
+        const { error } = await supabase.from('newsletter_subscribers').insert({ email });
+        if (error && error.code !== '23505') throw error;
+      }
       toast.success('Welcome to the collection.');
       setEmail('');
     } catch {
@@ -28,15 +28,15 @@ export function Footer() {
   }
 
   return (
-    <footer className="bg-art-charcoal text-art-white/70">
+    <footer className="bg-art-charcoal text-white/70">
       <div className="max-w-8xl mx-auto px-6 md:px-12 lg:px-20 py-20 md:py-28">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-12">
           {/* Brand */}
           <div className="space-y-5">
-            <p className="font-serif text-2xl font-light text-art-white tracking-wide">
+            <p className="font-serif text-2xl font-light text-white tracking-wide">
               The Fine Arc
             </p>
-            <p className="font-sans text-sm leading-relaxed text-art-white/50 max-w-xs">
+            <p className="font-sans text-sm leading-relaxed text-white/50 max-w-xs">
               Original fine art, crafted with intention. Each piece is a singular object made to outlast the moment.
             </p>
             <div className="flex items-center gap-5 pt-2">
@@ -44,13 +44,13 @@ export function Footer() {
                 href="https://instagram.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-art-white/40 hover:text-art-white transition-colors duration-300"
+                className="text-white/40 hover:text-white transition-colors duration-300"
               >
                 <InstagramIcon size={18} />
               </a>
               <a
                 href="mailto:hello@thefinearc.com"
-                className="text-art-white/40 hover:text-art-white transition-colors duration-300"
+                className="text-white/40 hover:text-white transition-colors duration-300"
               >
                 <Mail size={18} strokeWidth={1.5} />
               </a>
@@ -59,7 +59,7 @@ export function Footer() {
 
           {/* Navigation */}
           <div className="space-y-5">
-            <p className="font-sans text-[10px] tracking-widest uppercase text-art-white/40">
+            <p className="font-sans text-[10px] tracking-widest uppercase text-white/40">
               Explore
             </p>
             <nav className="flex flex-col gap-3">
@@ -72,7 +72,7 @@ export function Footer() {
                 <Link
                   key={link.href}
                   to={link.href}
-                  className="font-sans text-sm text-art-white/50 hover:text-art-white transition-colors duration-300 w-fit"
+                  className="font-sans text-sm text-white/50 hover:text-white transition-colors duration-300 w-fit"
                 >
                   {link.label}
                 </Link>
@@ -82,24 +82,24 @@ export function Footer() {
 
           {/* Newsletter */}
           <div className="space-y-5">
-            <p className="font-sans text-[10px] tracking-widest uppercase text-art-white/40">
+            <p className="font-sans text-[10px] tracking-widest uppercase text-white/40">
               Stay close
             </p>
-            <p className="font-sans text-sm leading-relaxed text-art-white/50">
+            <p className="font-sans text-sm leading-relaxed text-white/50">
               Be first to access new collections and exclusive releases.
             </p>
-            <form onSubmit={handleNewsletter} className="flex gap-0 border-b border-art-white/20">
+            <form onSubmit={handleNewsletter} className="flex gap-0 border-b border-white/20">
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="Your email"
-                className="flex-1 bg-transparent text-art-white text-sm font-sans placeholder:text-art-white/25 focus:outline-none py-3 pr-4"
+                className="flex-1 bg-transparent text-white text-sm font-sans placeholder:text-white/25 focus:outline-none py-3 pr-4"
               />
               <button
                 type="submit"
                 disabled={submitting}
-                className="font-sans text-[10px] tracking-widest uppercase text-art-white/50 hover:text-art-white transition-colors pb-3 disabled:opacity-40"
+                className="font-sans text-[10px] tracking-widest uppercase text-white/50 hover:text-white transition-colors pb-3 disabled:opacity-40"
               >
                 {submitting ? '...' : 'Join'}
               </button>
@@ -107,15 +107,13 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-20 pt-8 border-t border-art-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <p className="font-sans text-[11px] text-art-white/25">
+        <div className="mt-20 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <p className="font-sans text-[11px] text-white/25">
             © {new Date().getFullYear()} The Fine Arc. All rights reserved.
           </p>
-          <div className="flex items-center gap-6">
-            <Link to="/admin" className="font-sans text-[11px] text-art-white/20 hover:text-art-white/40 transition-colors">
-              Admin
-            </Link>
-          </div>
+          <Link to="/admin" className="font-sans text-[11px] text-white/20 hover:text-white/40 transition-colors">
+            Admin
+          </Link>
         </div>
       </div>
     </footer>

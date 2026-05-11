@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Artwork, ArtworkCategory } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseConfigured } from '../lib/supabase';
 import { mockArtworks } from '../lib/mockData';
-
-const USE_MOCK = !import.meta.env.VITE_SUPABASE_URL;
 
 export function useArtworks(category?: ArtworkCategory) {
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -13,7 +11,7 @@ export function useArtworks(category?: ArtworkCategory) {
   useEffect(() => {
     async function fetch() {
       setLoading(true);
-      if (USE_MOCK) {
+      if (!supabaseConfigured) {
         const filtered = category
           ? mockArtworks.filter(a => a.category === category)
           : mockArtworks;
@@ -42,7 +40,7 @@ export function useArtwork(id: string) {
   useEffect(() => {
     async function fetch() {
       setLoading(true);
-      if (USE_MOCK) {
+      if (!supabaseConfigured) {
         const found = mockArtworks.find(a => a.id === id) || null;
         setArtwork(found);
         setLoading(false);

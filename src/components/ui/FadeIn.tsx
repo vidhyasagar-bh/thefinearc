@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
+import { useRef, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { useInView } from 'react-intersection-observer';
 
 interface FadeInProps {
   children: ReactNode;
@@ -19,17 +19,35 @@ export function FadeIn({
   className = '',
   once = true,
 }: FadeInProps) {
-  const { ref, inView } = useInView({ triggerOnce: once, threshold: 0.1 });
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
 
-  const directionMap = {
-    up: { y: 24, x: 0 },
-    down: { y: -24, x: 0 },
-    left: { x: 24, y: 0 },
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          if (once) observer.disconnect();
+        } else if (!once) {
+          setInView(false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [once]);
+
+  const offsets = {
+    up:    { x: 0,   y: 24 },
+    down:  { x: 0,   y: -24 },
+    left:  { x: 24,  y: 0 },
     right: { x: -24, y: 0 },
-    none: { x: 0, y: 0 },
+    none:  { x: 0,   y: 0 },
   };
-
-  const { x, y } = directionMap[direction];
+  const { x, y } = offsets[direction];
 
   return (
     <motion.div

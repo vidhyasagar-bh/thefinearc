@@ -5,10 +5,10 @@ import { Input, Textarea } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Mail } from 'lucide-react';
 import { InstagramIcon } from '../components/ui/Icons';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseConfigured } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
-const USE_MOCK = !import.meta.env.VITE_SUPABASE_URL;
+
 
 export function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
@@ -23,7 +23,7 @@ export function ContactPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (!USE_MOCK) {
+      if (supabaseConfigured) {
         const { error } = await supabase.from('contact_messages').insert({
           name: form.name,
           email: form.email,

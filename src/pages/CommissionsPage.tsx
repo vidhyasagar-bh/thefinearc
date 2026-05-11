@@ -3,10 +3,10 @@ import { Layout } from '../components/layout/Layout';
 import { FadeIn } from '../components/ui/FadeIn';
 import { Input, Textarea } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseConfigured } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
-const USE_MOCK = !import.meta.env.VITE_SUPABASE_URL;
+
 
 interface FormData {
   name: string;
@@ -56,7 +56,7 @@ export function CommissionsPage() {
     }
     setSubmitting(true);
     try {
-      if (!USE_MOCK) {
+      if (supabaseConfigured) {
         const { error } = await supabase.from('commission_inquiries').insert({
           name: form.name,
           email: form.email,

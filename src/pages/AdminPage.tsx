@@ -9,11 +9,11 @@ import { mockArtworks } from '../lib/mockData';
 import type { Artwork, ArtworkCategory } from '../types';
 import { formatPrice } from '../utils/format';
 import toast from 'react-hot-toast';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseConfigured } from '../lib/supabase';
 
 type AdminTab = 'artworks' | 'orders' | 'commissions' | 'subscribers';
 
-const USE_MOCK = !import.meta.env.VITE_SUPABASE_URL;
+
 
 interface ArtworkFormState {
   title: string;
@@ -46,7 +46,7 @@ const emptyArtwork: ArtworkFormState = {
 export function AdminPage() {
   const [tab, setTab] = useState<AdminTab>('artworks');
   const { artworks } = useArtworks();
-  const displayArtworks = USE_MOCK ? mockArtworks : artworks;
+  const displayArtworks = !supabaseConfigured ? mockArtworks : artworks;
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyArtwork);
@@ -74,7 +74,7 @@ export function AdminPage() {
         framing: form.framing || null,
         year: parseInt(form.year) || null,
       };
-      if (!USE_MOCK) {
+      if (supabaseConfigured) {
         if (editingId) {
           await supabase.from('artworks').update(data).eq('id', editingId);
         } else {
@@ -93,7 +93,7 @@ export function AdminPage() {
   async function handleDelete(id: string) {
     if (!confirm('Delete this artwork?')) return;
     try {
-      if (!USE_MOCK) {
+      if (supabaseConfigured) {
         await supabase.from('artworks').delete().eq('id', id);
       }
       toast.success('Artwork deleted.');
@@ -225,7 +225,7 @@ export function AdminPage() {
                   <Button onClick={handleSave}>{editingId ? 'Save Changes' : 'Add Artwork'}</Button>
                   <Button variant="secondary" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
                 </div>
-                {USE_MOCK && (
+                {!supabaseConfigured && (
                   <p className="font-sans text-xs text-art-muted">⚠ Running in demo mode. Connect Supabase to persist changes.</p>
                 )}
               </motion.div>
@@ -276,7 +276,7 @@ export function AdminPage() {
         {tab === 'orders' && (
           <div className="py-20 text-center">
             <p className="font-serif text-2xl font-light text-art-muted">
-              {USE_MOCK ? 'Connect Supabase to view orders.' : 'No orders yet.'}
+              {!supabaseConfigured ? 'Connect Supabase to view orders.' : 'No orders yet.'}
             </p>
           </div>
         )}
@@ -285,7 +285,7 @@ export function AdminPage() {
         {tab === 'commissions' && (
           <div className="py-20 text-center">
             <p className="font-serif text-2xl font-light text-art-muted">
-              {USE_MOCK ? 'Connect Supabase to view commission inquiries.' : 'No inquiries yet.'}
+              {!supabaseConfigured ? 'Connect Supabase to view commission inquiries.' : 'No inquiries yet.'}
             </p>
           </div>
         )}
@@ -294,7 +294,7 @@ export function AdminPage() {
         {tab === 'subscribers' && (
           <div className="py-20 text-center">
             <p className="font-serif text-2xl font-light text-art-muted">
-              {USE_MOCK ? 'Connect Supabase to view subscribers.' : 'No subscribers yet.'}
+              {!supabaseConfigured ? 'Connect Supabase to view subscribers.' : 'No subscribers yet.'}
             </p>
           </div>
         )}
