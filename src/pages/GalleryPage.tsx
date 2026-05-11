@@ -25,31 +25,28 @@ export function GalleryPage() {
   return (
     <Layout>
       {/* Header */}
-      <div className="pt-32 md:pt-40 pb-12 md:pb-20 px-6 md:px-12 lg:px-20 bg-art-white">
+      <div className="pt-28 md:pt-40 pb-10 md:pb-20 px-6 md:px-12 lg:px-20 bg-art-white">
         <div className="max-w-8xl mx-auto">
           <FadeIn>
-            <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-4">
-              Works Available
-            </p>
-            <h1 className="font-serif text-5xl md:text-6xl font-light text-art-charcoal">
+            <h1 className="font-serif text-4xl md:text-6xl font-light text-art-charcoal">
               Gallery
             </h1>
-            <p className="mt-4 font-sans text-sm text-art-muted max-w-md leading-relaxed">
+            <p className="mt-3 font-sans text-sm text-art-muted max-w-md leading-relaxed">
               Each work is an original — painted, drawn, or captured once, and offered as a singular object.
             </p>
           </FadeIn>
 
-          {/* Filter */}
-          <FadeIn delay={0.2}>
-            <div className="flex flex-wrap gap-1 mt-12">
+          {/* Filter — horizontal scroll on mobile */}
+          <FadeIn delay={0.15}>
+            <div className="flex gap-1.5 mt-8 overflow-x-auto pb-1 scrollbar-hide">
               {categories.map(cat => (
                 <motion.button
                   key={cat.value}
                   onClick={() => setActiveCategory(cat.value)}
-                  whileTap={{ scale: 0.98 }}
-                  className={`font-sans text-[10px] tracking-widest uppercase px-5 py-2.5 border transition-all duration-300 ${
+                  whileTap={{ scale: 0.97 }}
+                  className={`flex-none font-sans text-[10px] tracking-widest uppercase px-4 py-2.5 border transition-all duration-300 ${
                     activeCategory === cat.value
-                      ? 'bg-art-charcoal text-art-white border-art-charcoal'
+                      ? 'bg-art-charcoal text-white border-art-charcoal'
                       : 'bg-transparent text-art-muted border-art-pale hover:border-art-light hover:text-art-charcoal'
                   }`}
                 >
@@ -62,12 +59,12 @@ export function GalleryPage() {
       </div>
 
       {/* Grid */}
-      <div className="pb-28 md:pb-40 px-6 md:px-12 lg:px-20">
+      <div className="pb-20 md:pb-40 px-6 md:px-12 lg:px-20">
         <div className="max-w-8xl mx-auto">
           {loading ? (
             <PageLoader />
           ) : artworks.length === 0 ? (
-            <div className="py-32 text-center">
+            <div className="py-24 text-center">
               <p className="font-serif text-2xl font-light text-art-muted">No works found</p>
             </div>
           ) : (

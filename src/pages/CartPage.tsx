@@ -19,7 +19,7 @@ export function CartPage() {
             <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-4">
               Your Selection
             </p>
-            <h1 className="font-serif text-4xl md:text-5xl font-light text-art-charcoal mb-14">
+            <h1 className="font-serif text-4xl md:text-5xl font-light text-art-charcoal mb-10 md:mb-14">
               Collection
             </h1>
           </FadeIn>
@@ -38,7 +38,7 @@ export function CartPage() {
               </div>
             </FadeIn>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-16">
               {/* Items */}
               <div className="lg:col-span-2 space-y-0 divide-y divide-art-pale">
                 <AnimatePresence initial={false}>

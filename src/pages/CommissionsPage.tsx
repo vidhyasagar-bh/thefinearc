@@ -35,7 +35,7 @@ export function CommissionsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name || !form.email || !form.project_description) {
+    if (!form.name || !form.email || !form.project_description || !form.size_preferences || !form.color_preferences) {
       toast.error('Please fill in all required fields.');
       return;
     }
@@ -167,16 +167,18 @@ export function CommissionsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <Input
-                      label="Preferred size (optional)"
+                      label="Preferred size *"
                       value={form.size_preferences}
                       onChange={e => update('size_preferences', e.target.value)}
                       placeholder="e.g. Large, around 80 × 100cm"
+                      required
                     />
                     <Input
-                      label="Colour palette (optional)"
+                      label="Colour palette *"
                       value={form.color_preferences}
                       onChange={e => update('color_preferences', e.target.value)}
                       placeholder="e.g. Warm, earthy, neutral"
+                      required
                     />
                   </div>
 

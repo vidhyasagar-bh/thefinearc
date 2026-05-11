@@ -104,14 +104,14 @@ export function CheckoutPage() {
       <div className="pt-32 md:pt-40 pb-24 px-6 md:px-12 lg:px-20 min-h-screen">
         <div className="max-w-6xl mx-auto">
           <FadeIn>
-            <h1 className="font-serif text-4xl md:text-5xl font-light text-art-charcoal mb-14">
+            <h1 className="font-serif text-4xl md:text-5xl font-light text-art-charcoal mb-10 md:mb-14">
               Checkout
             </h1>
           </FadeIn>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-16">
             {/* Form */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 order-2 lg:order-1">
               <form onSubmit={handleSubmit} className="space-y-12">
                 <FadeIn>
                   <div className="space-y-7">
@@ -196,7 +196,7 @@ export function CheckoutPage() {
 
             {/* Summary */}
             <FadeIn delay={0.2}>
-              <div className="space-y-6 bg-cream-50 p-7 lg:sticky lg:top-32 self-start">
+              <div className="space-y-6 bg-cream-50 p-7 lg:sticky lg:top-32 self-start order-1 lg:order-2">
                 <h2 className="font-serif text-lg font-light text-art-charcoal">Your Selection</h2>
                 <div className="space-y-5">
                   {items.map(({ artwork, quantity }) => (

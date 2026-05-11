@@ -42,9 +42,9 @@ export function ArtworkDetailPage() {
 
   return (
     <Layout>
-      <div className="pt-24 md:pt-32">
+      <div className="pt-20 md:pt-32">
         {/* Breadcrumb */}
-        <div className="px-6 md:px-12 lg:px-20 mb-10">
+        <div className="px-6 md:px-12 lg:px-20 mb-6 md:mb-10">
           <div className="max-w-8xl mx-auto">
             <Link
               to="/gallery"
@@ -56,8 +56,8 @@ export function ArtworkDetailPage() {
         </div>
 
         {/* Main */}
-        <div className="px-6 md:px-12 lg:px-20 pb-24 md:pb-40">
-          <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
+        <div className="px-6 md:px-12 lg:px-20 pb-16 md:pb-40">
+          <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-20">
             {/* Images */}
             <FadeIn direction="left">
               <div className="space-y-3">
@@ -99,14 +99,14 @@ export function ArtworkDetailPage() {
 
             {/* Details */}
             <FadeIn direction="right" delay={0.2}>
-              <div className="space-y-8 lg:sticky lg:top-32 lg:self-start">
+              <div className="space-y-6 md:space-y-8 lg:sticky lg:top-32 lg:self-start">
                 {/* Category */}
                 <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
                   {artwork.category.replace('-', ' ')} · {artwork.year}
                 </p>
 
                 {/* Title */}
-                <h1 className="font-serif text-4xl md:text-5xl font-light text-art-charcoal leading-tight">
+                <h1 className="font-serif text-3xl md:text-5xl font-light text-art-charcoal leading-tight">
                   {artwork.title}
                 </h1>
 

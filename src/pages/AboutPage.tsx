@@ -25,11 +25,11 @@ export function AboutPage() {
       </div>
 
       {/* Statement */}
-      <section className="py-24 md:py-40 px-6 md:px-12 lg:px-20 bg-art-white">
-        <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16">
+      <section className="py-16 md:py-40 px-6 md:px-12 lg:px-20 bg-art-white">
+        <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16">
           <div className="lg:col-span-4">
             <FadeIn direction="left">
-              <div className="aspect-[3/4] overflow-hidden bg-cream-100 sticky top-32">
+              <div className="aspect-[4/3] sm:aspect-[3/4] overflow-hidden bg-cream-100 lg:sticky lg:top-32">
                 <img
                   src="https://picsum.photos/seed/artist-portrait/800/1000"
                   alt="Artist portrait"
@@ -46,7 +46,7 @@ export function AboutPage() {
                   <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-4">
                     Artist Statement
                   </p>
-                  <h2 className="font-serif text-4xl md:text-5xl font-light text-art-charcoal leading-tight">
+                  <h2 className="font-serif text-3xl md:text-5xl font-light text-art-charcoal leading-tight">
                     I make things that take time to understand.
                   </h2>
                 </div>

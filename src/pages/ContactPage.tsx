@@ -43,7 +43,7 @@ export function ContactPage() {
   return (
     <Layout>
       <div className="pt-32 md:pt-40 pb-24 md:pb-40 px-6 md:px-12 lg:px-20">
-        <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20 lg:gap-32">
+        <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-32">
           {/* Left */}
           <FadeIn direction="left">
             <div className="space-y-10">
@@ -51,7 +51,7 @@ export function ContactPage() {
                 <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-4">
                   Get in touch
                 </p>
-                <h1 className="font-serif text-5xl md:text-6xl font-light text-art-charcoal leading-tight">
+                <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-light text-art-charcoal leading-tight">
                   Let's talk.
                 </h1>
               </div>
@@ -82,7 +82,7 @@ export function ContactPage() {
                 </a>
               </div>
 
-              <div className="pt-10">
+              <div className="pt-6 hidden lg:block">
                 <div className="aspect-[4/3] overflow-hidden bg-cream-100">
                   <img
                     src="https://picsum.photos/seed/contact-studio/1000/750"

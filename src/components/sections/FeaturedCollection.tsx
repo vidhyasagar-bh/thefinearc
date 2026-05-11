@@ -1,25 +1,42 @@
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FadeIn } from '../ui/FadeIn';
 import { ArtworkCard } from '../artwork/ArtworkCard';
 import { mockArtworks } from '../../lib/mockData';
 
 export function FeaturedCollection() {
   const featured = mockArtworks.filter(a => a.availability === 'available').slice(0, 3);
+  const [index, setIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+
+  const go = useCallback((dir: number) => {
+    setDirection(dir);
+    setIndex(i => (i + dir + featured.length) % featured.length);
+  }, [featured.length]);
+
+  // Autoscroll every 5 seconds
+  useEffect(() => {
+    const t = setInterval(() => go(1), 5000);
+    return () => clearInterval(t);
+  }, [go]);
+
+  const variants = {
+    enter: (dir: number) => ({ x: dir > 0 ? '60%' : '-60%', opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (dir: number) => ({ x: dir > 0 ? '-60%' : '60%', opacity: 0 }),
+  };
 
   return (
-    <section className="py-28 md:py-40 bg-art-white">
+    <section className="py-20 md:py-40 bg-art-white">
       <div className="max-w-8xl mx-auto">
         {/* Header */}
         <FadeIn>
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 md:mb-16 gap-6 px-6 md:px-12 lg:px-20">
-            <div>
-              <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-4">
-                New Work
-              </p>
-              <h2 className="font-serif text-4xl md:text-5xl font-light text-art-charcoal">
-                Current Collection
-              </h2>
-            </div>
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 md:mb-16 gap-4 px-6 md:px-12 lg:px-20">
+            <h2 className="font-serif text-4xl md:text-5xl font-light text-art-charcoal">
+              Current Collection
+            </h2>
             <Link
               to="/gallery"
               className="font-sans text-[11px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors border-b border-art-light hover:border-art-charcoal pb-0.5 self-start md:self-auto"
@@ -29,25 +46,54 @@ export function FeaturedCollection() {
           </div>
         </FadeIn>
 
-        {/* Mobile carousel */}
-        <div className="md:hidden">
-          <div className="flex gap-5 overflow-x-auto pl-6 pr-6 pb-8 snap-x snap-mandatory scrollbar-hide scroll-pl-6">
-            {featured.map((artwork, i) => (
-              <div
-                key={artwork.id}
-                className="flex-none w-[78vw] snap-start"
+        {/* Mobile carousel — one card at a time */}
+        <div className="md:hidden px-6 relative">
+          <div className="relative overflow-hidden">
+            <AnimatePresence initial={false} custom={direction} mode="popLayout">
+              <motion.div
+                key={index}
+                custom={direction}
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               >
-                <ArtworkCard artwork={artwork} index={i} />
-              </div>
-            ))}
-            {/* Trailing space so last card clears the edge */}
-            <div className="flex-none w-2 shrink-0" />
+                <ArtworkCard artwork={featured[index]} />
+              </motion.div>
+            </AnimatePresence>
           </div>
-          {/* Scroll hint dots */}
-          <div className="flex items-center justify-center gap-1.5 mt-2">
-            {featured.map((_, i) => (
-              <div key={i} className={`rounded-full bg-art-light ${i === 0 ? 'w-4 h-1' : 'w-1 h-1'}`} />
-            ))}
+
+          {/* Arrows + dots row */}
+          <div className="flex items-center justify-between mt-6">
+            <button
+              onClick={() => go(-1)}
+              aria-label="Previous"
+              className="w-10 h-10 flex items-center justify-center border border-art-pale text-art-muted hover:text-art-charcoal hover:border-art-light transition-colors"
+            >
+              <ChevronLeft size={18} strokeWidth={1.5} />
+            </button>
+
+            <div className="flex items-center gap-2">
+              {featured.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
+                  className={`rounded-full transition-all duration-300 ${
+                    i === index ? 'w-5 h-1.5 bg-art-charcoal' : 'w-1.5 h-1.5 bg-art-light'
+                  }`}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={() => go(1)}
+              aria-label="Next"
+              className="w-10 h-10 flex items-center justify-center border border-art-pale text-art-muted hover:text-art-charcoal hover:border-art-light transition-colors"
+            >
+              <ChevronRight size={18} strokeWidth={1.5} />
+            </button>
           </div>
         </div>
 

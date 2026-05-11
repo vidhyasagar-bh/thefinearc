@@ -5,11 +5,11 @@ export function ArtistIntro() {
   return (
     <section className="py-28 md:py-40 bg-cream-100">
       <div className="max-w-8xl mx-auto px-6 md:px-12 lg:px-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center">
           {/* Image */}
           <FadeIn direction="left">
             <div className="relative">
-              <div className="aspect-[4/5] overflow-hidden bg-cream-200">
+              <div className="aspect-[4/3] sm:aspect-[4/5] overflow-hidden bg-cream-200">
                 <img
                   src="https://picsum.photos/seed/artist-intro/800/1000"
                   alt="The artist at work"
