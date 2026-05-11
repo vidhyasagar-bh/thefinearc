@@ -66,21 +66,21 @@ export function FeaturedCollection() {
               </AnimatePresence>
             </div>
 
-            {/* Arrows overlaid on the image — aspect-[3/4] ghost matches the image exactly */}
-            <div className="absolute top-0 inset-x-0 aspect-[3/4] flex items-center justify-between px-3 pointer-events-none">
+            {/* Arrows overlaid on the image — absolutely pinned to each edge, centered on image height */}
+            <div className="absolute top-0 inset-x-0 aspect-[3/4] pointer-events-none">
               <button
                 onClick={() => go(-1)}
                 aria-label="Previous"
-                className="pointer-events-auto w-9 h-9 flex items-center justify-center bg-art-white/80 backdrop-blur-sm text-art-charcoal hover:bg-art-white transition-colors shadow-sm"
+                className="pointer-events-auto absolute left-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors drop-shadow"
               >
-                <ChevronLeft size={16} strokeWidth={1.5} />
+                <ChevronLeft size={28} strokeWidth={1.5} />
               </button>
               <button
                 onClick={() => go(1)}
                 aria-label="Next"
-                className="pointer-events-auto w-9 h-9 flex items-center justify-center bg-art-white/80 backdrop-blur-sm text-art-charcoal hover:bg-art-white transition-colors shadow-sm"
+                className="pointer-events-auto absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors drop-shadow"
               >
-                <ChevronRight size={16} strokeWidth={1.5} />
+                <ChevronRight size={28} strokeWidth={1.5} />
               </button>
             </div>
           </div>
