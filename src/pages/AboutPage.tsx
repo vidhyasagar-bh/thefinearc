@@ -1,6 +1,5 @@
 import { Layout } from '../components/layout/Layout';
 import { FadeIn } from '../components/ui/FadeIn';
-import { Link } from 'react-router-dom';
 import { ArtworkAssembly } from '../components/sections/ArtworkAssembly';
 
 export function AboutPage() {
@@ -138,33 +137,6 @@ export function AboutPage() {
       </section>
 
       <ArtworkAssembly />
-
-      {/* CTA */}
-      <section className="py-20 md:py-32 bg-art-charcoal text-art-white text-center px-6">
-        <FadeIn>
-          <div className="max-w-lg mx-auto space-y-7">
-            <h2 className="font-serif text-4xl md:text-5xl font-light leading-tight">
-              Collect something
-              <br /><em>that matters.</em>
-            </h2>
-            <p className="font-sans text-sm text-art-white/50 leading-relaxed">
-              Browse available works, or enquire about a commission made specifically for you.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-              <Link to="/gallery">
-                <button className="font-sans text-[11px] tracking-widest uppercase px-8 py-4 border border-art-white text-art-white hover:bg-art-white hover:text-art-charcoal transition-all duration-400">
-                  Browse the Gallery
-                </button>
-              </Link>
-              <Link to="/commissions">
-                <button className="font-sans text-[11px] tracking-widest uppercase text-art-white/50 hover:text-art-white border-b border-art-white/20 hover:border-art-white/60 pb-0.5 transition-all duration-300">
-                  Commission a Work
-                </button>
-              </Link>
-            </div>
-          </div>
-        </FadeIn>
-      </section>
     </Layout>
   );
 }

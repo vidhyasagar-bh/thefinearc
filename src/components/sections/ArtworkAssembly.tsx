@@ -1,5 +1,5 @@
-import { useRef, useEffect, useState } from 'react';
-import { motion, useScroll, useTransform, type MotionValue } from 'framer-motion';
+import { useRef, useEffect } from 'react';
+import { motion, useMotionValue, useTransform, type MotionValue } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useArtworks } from '../../hooks/useArtworks';
 import { formatPrice } from '../../utils/format';
@@ -30,7 +30,6 @@ const STAGES = [
   { label: 'Completion',   body: 'A painting is finished not when nothing can be added, but when nothing needs to be.' },
 ];
 
-// Each component calls its own hooks — no hooks inside loops
 function Tile({ col, row, scatter, progress, imageUrl }: {
   col: number; row: number;
   scatter: { x: number; y: number; r: number };
@@ -72,9 +71,9 @@ function StageText({ index, stage, progress }: {
   stage: typeof STAGES[number];
   progress: MotionValue<number>;
 }) {
-  const s     = index * 0.20;
-  const peak  = s + 0.10;
-  const e     = s + 0.18;
+  const s       = index * 0.20;
+  const peak    = s + 0.10;
+  const e       = s + 0.18;
   const fadeOut = Math.min(e + 0.06, 0.78);
 
   const opacity = useTransform(progress, [s, peak, e, fadeOut], [0, 1, 1, 0]);
@@ -123,31 +122,31 @@ function ArtworkInfo({ artwork, progress }: { artwork: Artwork; progress: Motion
 
 function AssemblyScene({ artwork }: { artwork: Artwork }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [range, setRange] = useState<[number, number]>([0, 1]);
-
-  // Window-level scroll avoids overflow-x:hidden on the layout breaking target-based tracking
-  const { scrollY } = useScroll();
+  // Raw motion value — updated directly on scroll, no React re-renders
+  const progress = useMotionValue(0);
 
   useEffect(() => {
-    const update = () => {
+    const handleScroll = () => {
       const el = wrapperRef.current;
       if (!el) return;
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      setRange([top, top + el.offsetHeight - window.innerHeight]);
+      const rect           = el.getBoundingClientRect();
+      const scrollableH    = el.offsetHeight - window.innerHeight;
+      const scrolled       = -rect.top; // negative rect.top = how far we've scrolled into it
+      progress.set(Math.max(0, Math.min(1, scrolled / scrollableH)));
     };
-    update();
-    window.addEventListener('resize', update, { passive: true });
-    return () => window.removeEventListener('resize', update);
-  }, []);
 
-  const progress = useTransform(scrollY, range, [0, 1], { clamp: true });
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    // Run once immediately in case page loaded mid-scroll
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [progress]);
 
   return (
     <div ref={wrapperRef} className="relative" style={{ height: '500vh' }}>
       <div className="sticky top-0 h-screen overflow-hidden bg-art-charcoal flex items-center justify-center">
 
         {/* Process text — left */}
-        <div className="absolute left-8 md:left-14 top-1/2 -translate-y-1/2 w-[160px] md:w-[210px]">
+        <div className="absolute left-8 md:left-14 top-1/2 -translate-y-1/2 w-[155px] md:w-[210px]">
           <p className="font-sans text-[9px] tracking-widest uppercase text-white/20 mb-8">The Process</p>
           <div className="relative h-36">
             {STAGES.map((stage, i) => (
