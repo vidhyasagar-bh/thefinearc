@@ -16,7 +16,7 @@ export function ArtistIntro() {
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 md:w-48 md:h-48 bg-cream-200 -z-10" />
+              <div className="absolute -bottom-6 -right-6 w-32 h-32 md:w-48 md:h-48 bg-cream-200 -z-10 hidden sm:block" />
             </div>
           </FadeIn>
 

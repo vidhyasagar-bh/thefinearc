@@ -76,7 +76,7 @@ export function CommissionsPage() {
     <Layout>
       {/* Hero */}
       <div className="pt-32 md:pt-40 pb-20 md:pb-28 px-6 md:px-12 lg:px-20 bg-cream-100">
-        <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-end">
+        <div className="max-w-8xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-end">
           <FadeIn>
             <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-4">
               Bespoke Work

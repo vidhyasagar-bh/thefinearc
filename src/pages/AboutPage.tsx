@@ -26,10 +26,10 @@ export function AboutPage() {
 
       {/* Statement */}
       <section className="py-16 md:py-40 px-6 md:px-12 lg:px-20 bg-art-white">
-        <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16">
-          <div className="lg:col-span-4">
+        <div className="max-w-8xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-16">
+          <div className="md:col-span-1 lg:col-span-4">
             <FadeIn direction="left">
-              <div className="aspect-[4/3] sm:aspect-[3/4] overflow-hidden bg-cream-100 lg:sticky lg:top-32">
+              <div className="aspect-[4/3] sm:aspect-[3/4] overflow-hidden bg-cream-100 md:sticky md:top-32">
                 <img
                   src="https://picsum.photos/seed/artist-portrait/800/1000"
                   alt="Artist portrait"
@@ -39,7 +39,7 @@ export function AboutPage() {
             </FadeIn>
           </div>
 
-          <div className="lg:col-span-7 lg:col-start-6">
+          <div className="md:col-span-1 lg:col-span-7 lg:col-start-6">
             <FadeIn direction="right" delay={0.15}>
               <div className="space-y-10">
                 <div>

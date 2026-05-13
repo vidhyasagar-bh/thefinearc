@@ -43,7 +43,7 @@ export function ContactPage() {
   return (
     <Layout>
       <div className="pt-32 md:pt-40 pb-24 md:pb-40 px-6 md:px-12 lg:px-20">
-        <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-32">
+        <div className="max-w-8xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 lg:gap-32">
           {/* Left */}
           <FadeIn direction="left">
             <div className="space-y-10">

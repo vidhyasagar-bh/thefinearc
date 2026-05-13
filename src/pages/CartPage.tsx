@@ -38,9 +38,9 @@ export function CartPage() {
               </div>
             </FadeIn>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-16">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 lg:gap-16">
               {/* Items */}
-              <div className="lg:col-span-2 divide-y divide-art-pale">
+              <div className="md:col-span-2 divide-y divide-art-pale">
                 <AnimatePresence initial={false}>
                   {items.map(({ artwork }) => (
                     <motion.div
@@ -98,7 +98,7 @@ export function CartPage() {
 
               {/* Summary */}
               <FadeIn delay={0.2}>
-                <div className="lg:sticky lg:top-32 space-y-5 bg-cream-50 p-6 md:p-8">
+                <div className="md:sticky md:top-32 space-y-5 bg-cream-50 p-6 md:p-8">
                   <h2 className="font-serif text-xl font-light text-art-charcoal">
                     Order Summary
                   </h2>

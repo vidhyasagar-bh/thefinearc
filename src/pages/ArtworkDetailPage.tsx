@@ -57,7 +57,7 @@ export function ArtworkDetailPage() {
 
         {/* Main */}
         <div className="px-6 md:px-12 lg:px-20 pb-16 md:pb-40">
-          <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-20">
+          <div className="max-w-8xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 lg:gap-20">
             {/* Images */}
             <FadeIn direction="left">
               <div className="space-y-3">
@@ -99,7 +99,7 @@ export function ArtworkDetailPage() {
 
             {/* Details */}
             <FadeIn direction="right" delay={0.2}>
-              <div className="space-y-6 md:space-y-8 lg:sticky lg:top-32 lg:self-start">
+              <div className="space-y-6 md:space-y-8 md:sticky md:top-32 md:self-start">
                 {/* Category */}
                 <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
                   {artwork.category.replace('-', ' ')} · {artwork.year}
@@ -144,11 +144,11 @@ export function ArtworkDetailPage() {
                     { label: 'Dimensions', value: artwork.dimensions },
                     artwork.framing && { label: 'Framing', value: artwork.framing },
                   ].filter(Boolean).map((spec: any) => (
-                    <div key={spec.label} className="flex justify-between gap-4">
-                      <span className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
+                    <div key={spec.label} className="flex justify-between gap-4 flex-wrap">
+                      <span className="font-sans text-[10px] tracking-widest uppercase text-art-muted shrink-0">
                         {spec.label}
                       </span>
-                      <span className="font-sans text-sm text-art-charcoal text-right">
+                      <span className="font-sans text-sm text-art-charcoal text-right min-w-0 break-words">
                         {spec.value}
                       </span>
                     </div>
