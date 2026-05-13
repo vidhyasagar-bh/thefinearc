@@ -8,7 +8,7 @@ export function LoadingSpinner({ className = '' }: { className?: string }) {
 
 export function PageLoader() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-art-white">
+    <div className="flex items-center justify-center py-32 bg-art-white">
       <LoadingSpinner />
     </div>
   );

@@ -19,7 +19,7 @@
   #root {
     width: 100%;
     min-height: 100vh;
-    min-height: 100svh; /* override with svh where supported */
+    min-height: calc(var(--vh, 1vh) * 100);
   }
 
   * {
@@ -48,6 +48,17 @@
 }
 
 @layer utilities {
+  /* Real visible-viewport height — works on iOS Safari where 100vh is wrong */
+  .min-h-dynamic {
+    min-height: 100vh;
+    min-height: calc(var(--vh, 1vh) * 100);
+  }
+
+  .h-dynamic {
+    height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
+  }
+
   .transition-400 {
     transition-duration: 400ms;
   }

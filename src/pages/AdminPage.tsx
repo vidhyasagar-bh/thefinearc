@@ -100,7 +100,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <div className="min-h-screen w-full bg-art-white flex items-center justify-center px-6">
+    <div className="min-h-dynamic w-full bg-art-white flex items-center justify-center px-6">
       <div className="w-full max-w-sm space-y-10">
         <div className="text-center space-y-3">
           <div className="flex justify-center"><Lock size={20} strokeWidth={1.5} className="text-art-muted" /></div>
@@ -407,7 +407,7 @@ function AdminDashboard({
 
   // ── render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen w-full bg-art-white">
+    <div className="min-h-dynamic w-full bg-art-white">
 
       {/* Top bar */}
       <div className="border-b border-art-pale sticky top-0 bg-art-white z-40">
