@@ -4,29 +4,38 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FadeIn } from '../ui/FadeIn';
 import { ArtworkCard } from '../artwork/ArtworkCard';
-import { mockArtworks } from '../../lib/mockData';
+import { useArtworks } from '../../hooks/useArtworks';
 
 export function FeaturedCollection() {
-  const featured = mockArtworks.filter(a => a.availability === 'available').slice(0, 3);
+  const { artworks, loading } = useArtworks();
+  const featured = artworks.filter(a => a.availability === 'available').slice(0, 3);
+
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState(1);
 
+  // Reset carousel when artwork list changes
+  useEffect(() => { setIndex(0); }, [featured.length]);
+
   const go = useCallback((dir: number) => {
+    if (featured.length < 2) return;
     setDirection(dir);
     setIndex(i => (i + dir + featured.length) % featured.length);
   }, [featured.length]);
 
-  // Autoscroll every 5 seconds
   useEffect(() => {
+    if (featured.length < 2) return;
     const t = setInterval(() => go(1), 5000);
     return () => clearInterval(t);
-  }, [go]);
+  }, [go, featured.length]);
 
   const variants = {
     enter: (dir: number) => ({ x: dir > 0 ? '60%' : '-60%', opacity: 0 }),
     center: { x: 0, opacity: 1 },
     exit: (dir: number) => ({ x: dir > 0 ? '-60%' : '60%', opacity: 0 }),
   };
+
+  // Don't render the section while loading or if no available artworks
+  if (loading || featured.length === 0) return null;
 
   return (
     <section className="py-20 md:py-40 bg-art-white">
@@ -66,38 +75,42 @@ export function FeaturedCollection() {
               </AnimatePresence>
             </div>
 
-            {/* Arrows overlaid on the image — absolutely pinned to each edge, centered on image height */}
-            <div className="absolute top-0 inset-x-0 aspect-[3/4] pointer-events-none">
-              <button
-                onClick={() => go(-1)}
-                aria-label="Previous"
-                className="pointer-events-auto absolute left-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors drop-shadow"
-              >
-                <ChevronLeft size={28} strokeWidth={1.5} />
-              </button>
-              <button
-                onClick={() => go(1)}
-                aria-label="Next"
-                className="pointer-events-auto absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors drop-shadow"
-              >
-                <ChevronRight size={28} strokeWidth={1.5} />
-              </button>
-            </div>
+            {/* Arrows — only shown when more than one artwork */}
+            {featured.length > 1 && (
+              <div className="absolute top-0 inset-x-0 aspect-[3/4] pointer-events-none">
+                <button
+                  onClick={() => go(-1)}
+                  aria-label="Previous"
+                  className="pointer-events-auto absolute left-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors drop-shadow"
+                >
+                  <ChevronLeft size={28} strokeWidth={1.5} />
+                </button>
+                <button
+                  onClick={() => go(1)}
+                  aria-label="Next"
+                  className="pointer-events-auto absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors drop-shadow"
+                >
+                  <ChevronRight size={28} strokeWidth={1.5} />
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Dots */}
-          <div className="flex items-center justify-center gap-2 mt-5">
-            {featured.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
-                className={`rounded-full transition-all duration-300 ${
-                  i === index ? 'w-5 h-1.5 bg-art-charcoal' : 'w-1.5 h-1.5 bg-art-light'
-                }`}
-                aria-label={`Go to slide ${i + 1}`}
-              />
-            ))}
-          </div>
+          {/* Dots — only shown when more than one artwork */}
+          {featured.length > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-5">
+              {featured.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
+                  className={`rounded-full transition-all duration-300 ${
+                    i === index ? 'w-5 h-1.5 bg-art-charcoal' : 'w-1.5 h-1.5 bg-art-light'
+                  }`}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Desktop grid */}

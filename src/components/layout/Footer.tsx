@@ -111,8 +111,8 @@ export function Footer() {
           <p className="font-sans text-[11px] text-white/25">
             © {new Date().getFullYear()} The Fine Arc. All rights reserved.
           </p>
-          <Link to="/admin" className="font-sans text-[11px] text-white/20 hover:text-white/40 transition-colors">
-            Admin
+          <Link to="/admin" className="font-sans text-[11px] text-white/40 hover:text-white transition-colors">
+            Admin ↗
           </Link>
         </div>
       </div>

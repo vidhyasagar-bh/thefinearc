@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, Trash2, Eye, Package, MessageSquare, Users, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, Package, MessageSquare, Users, RefreshCw, LogOut, Lock } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input, Textarea } from '../components/ui/Input';
 import { PageLoader } from '../components/ui/LoadingSpinner';
@@ -64,7 +64,64 @@ const statusColors: Record<string, string> = {
   reserved:  'bg-yellow-50 text-yellow-700',
 };
 
+// ── Login Gate ────────────────────────────────────────────────────────────────
+function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(false);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const correct = import.meta.env.VITE_ADMIN_PASSWORD || 'admin';
+    if (password === correct) {
+      sessionStorage.setItem('admin_auth', '1');
+      onSuccess();
+    } else {
+      setError(true);
+      setPassword('');
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-art-white flex items-center justify-center px-6">
+      <div className="w-full max-w-sm space-y-10">
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">
+            <Lock size={20} strokeWidth={1.5} className="text-art-muted" />
+          </div>
+          <h1 className="font-serif text-3xl font-light text-art-charcoal">Admin Access</h1>
+          <p className="font-sans text-sm text-art-muted">The Fine Arc</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-1">
+            <Input
+              label="Password"
+              type="password"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setError(false); }}
+              autoFocus
+              required
+            />
+            {error && (
+              <p className="font-sans text-xs text-red-500 pt-1">Incorrect password.</p>
+            )}
+          </div>
+          <Button type="submit" size="lg" className="w-full">
+            Enter Dashboard
+          </Button>
+        </form>
+
+        <p className="font-sans text-center text-[10px] text-art-light">
+          Set <code className="text-art-muted">VITE_ADMIN_PASSWORD</code> in your environment to change the password.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Dashboard ─────────────────────────────────────────────────────────────
 export function AdminPage() {
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem('admin_auth') === '1');
   const [tab, setTab] = useState<AdminTab>('artworks');
 
   // — Artworks —
@@ -86,7 +143,42 @@ export function AdminPage() {
   const [subscribers, setSubscribers] = useState<NewsletterSubscriber[]>([]);
   const [subscribersLoading, setSubscribersLoading] = useState(false);
 
-  // Fetch artworks
+  if (!authed) {
+    return <AdminLogin onSuccess={() => setAuthed(true)} />;
+  }
+
+  function signOut() {
+    sessionStorage.removeItem('admin_auth');
+    setAuthed(false);
+  }
+
+  return <AdminDashboard tab={tab} setTab={setTab} signOut={signOut}
+    artworks={artworks} setArtworks={setArtworks} artworksLoading={artworksLoading} setArtworksLoading={setArtworksLoading}
+    showForm={showForm} setShowForm={setShowForm} editingId={editingId} setEditingId={setEditingId}
+    form={form} setForm={setForm}
+    orders={orders} setOrders={setOrders} ordersLoading={ordersLoading} setOrdersLoading={setOrdersLoading}
+    commissions={commissions} setCommissions={setCommissions} commissionsLoading={commissionsLoading} setCommissionsLoading={setCommissionsLoading}
+    subscribers={subscribers} setSubscribers={setSubscribers} subscribersLoading={subscribersLoading} setSubscribersLoading={setSubscribersLoading}
+  />;
+}
+
+// Split into separate component so hooks run unconditionally after auth check
+function AdminDashboard({
+  tab, setTab, signOut,
+  artworks, setArtworks, artworksLoading, setArtworksLoading,
+  showForm, setShowForm, editingId, setEditingId, form, setForm,
+  orders, setOrders, ordersLoading, setOrdersLoading,
+  commissions, setCommissions, commissionsLoading, setCommissionsLoading,
+  subscribers, setSubscribers, subscribersLoading, setSubscribersLoading,
+}: {
+  tab: AdminTab; setTab: (t: AdminTab) => void; signOut: () => void;
+  artworks: Artwork[]; setArtworks: (a: Artwork[]) => void; artworksLoading: boolean; setArtworksLoading: (v: boolean) => void;
+  showForm: boolean; setShowForm: (v: boolean) => void; editingId: string | null; setEditingId: (v: string | null) => void;
+  form: ArtworkFormState; setForm: (f: ArtworkFormState) => void;
+  orders: Order[]; setOrders: (o: Order[]) => void; ordersLoading: boolean; setOrdersLoading: (v: boolean) => void;
+  commissions: CommissionInquiry[]; setCommissions: (c: CommissionInquiry[]) => void; commissionsLoading: boolean; setCommissionsLoading: (v: boolean) => void;
+  subscribers: NewsletterSubscriber[]; setSubscribers: (s: NewsletterSubscriber[]) => void; subscribersLoading: boolean; setSubscribersLoading: (v: boolean) => void;
+}) {
   const fetchArtworks = useCallback(async () => {
     setArtworksLoading(true);
     if (!supabaseConfigured) {
@@ -94,55 +186,39 @@ export function AdminPage() {
       setArtworksLoading(false);
       return;
     }
-    const { data, error } = await supabase
-      .from('artworks')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('artworks').select('*').order('created_at', { ascending: false });
     if (error) toast.error('Failed to load artworks.');
     else setArtworks((data as Artwork[]) || []);
     setArtworksLoading(false);
-  }, []);
+  }, [setArtworks, setArtworksLoading]);
 
-  // Fetch orders
   const fetchOrders = useCallback(async () => {
     if (!supabaseConfigured) return;
     setOrdersLoading(true);
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
     if (error) toast.error('Failed to load orders.');
     else setOrders((data as Order[]) || []);
     setOrdersLoading(false);
-  }, []);
+  }, [setOrders, setOrdersLoading]);
 
-  // Fetch commissions
   const fetchCommissions = useCallback(async () => {
     if (!supabaseConfigured) return;
     setCommissionsLoading(true);
-    const { data, error } = await supabase
-      .from('commission_inquiries')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('commission_inquiries').select('*').order('created_at', { ascending: false });
     if (error) toast.error('Failed to load commissions.');
     else setCommissions((data as CommissionInquiry[]) || []);
     setCommissionsLoading(false);
-  }, []);
+  }, [setCommissions, setCommissionsLoading]);
 
-  // Fetch subscribers
   const fetchSubscribers = useCallback(async () => {
     if (!supabaseConfigured) return;
     setSubscribersLoading(true);
-    const { data, error } = await supabase
-      .from('newsletter_subscribers')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('newsletter_subscribers').select('*').order('created_at', { ascending: false });
     if (error) toast.error('Failed to load subscribers.');
     else setSubscribers((data as NewsletterSubscriber[]) || []);
     setSubscribersLoading(false);
-  }, []);
+  }, [setSubscribers, setSubscribersLoading]);
 
-  // Load data when tab changes
   useEffect(() => {
     if (tab === 'artworks') fetchArtworks();
     if (tab === 'orders') fetchOrders();
@@ -151,45 +227,31 @@ export function AdminPage() {
   }, [tab, fetchArtworks, fetchOrders, fetchCommissions, fetchSubscribers]);
 
   function updateForm(field: string, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }));
+    setForm({ ...form, [field]: value });
   }
 
   async function handleSave() {
-    if (!form.title || !form.price) {
-      toast.error('Title and price are required.');
-      return;
-    }
+    if (!form.title || !form.price) { toast.error('Title and price are required.'); return; }
     try {
       const data = {
-        title: form.title,
-        description: form.description,
-        story: form.story || null,
-        price: parseFloat(form.price),
-        dimensions: form.dimensions,
-        materials: form.materials,
-        category: form.category,
-        images: form.images.filter(Boolean),
-        availability: form.availability,
-        framing: form.framing || null,
+        title: form.title, description: form.description, story: form.story || null,
+        price: parseFloat(form.price), dimensions: form.dimensions, materials: form.materials,
+        category: form.category, images: form.images.filter(Boolean),
+        availability: form.availability, framing: form.framing || null,
         year: parseInt(form.year) || null,
       };
       if (supabaseConfigured) {
-        if (editingId) {
-          const { error } = await supabase.from('artworks').update(data).eq('id', editingId);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase.from('artworks').insert(data);
-          if (error) throw error;
-        }
+        const { error } = editingId
+          ? await supabase.from('artworks').update(data).eq('id', editingId)
+          : await supabase.from('artworks').insert(data);
+        if (error) throw error;
       }
       toast.success(editingId ? 'Artwork updated.' : 'Artwork added.');
       setShowForm(false);
       setEditingId(null);
       setForm(emptyArtwork);
       fetchArtworks();
-    } catch {
-      toast.error('Failed to save. Please try again.');
-    }
+    } catch { toast.error('Failed to save.'); }
   }
 
   async function handleDelete(id: string) {
@@ -200,24 +262,16 @@ export function AdminPage() {
         if (error) throw error;
       }
       toast.success('Artwork deleted.');
-      setArtworks(prev => prev.filter(a => a.id !== id));
-    } catch {
-      toast.error('Failed to delete.');
-    }
+      setArtworks(artworks.filter(a => a.id !== id));
+    } catch { toast.error('Failed to delete.'); }
   }
 
   function startEdit(artwork: Artwork) {
     setForm({
-      title: artwork.title,
-      description: artwork.description,
-      story: artwork.story || '',
-      price: artwork.price.toString(),
-      dimensions: artwork.dimensions,
-      materials: artwork.materials,
-      category: artwork.category,
-      images: artwork.images.length ? artwork.images : [''],
-      availability: artwork.availability,
-      framing: artwork.framing || '',
+      title: artwork.title, description: artwork.description, story: artwork.story || '',
+      price: artwork.price.toString(), dimensions: artwork.dimensions, materials: artwork.materials,
+      category: artwork.category, images: artwork.images.length ? artwork.images : [''],
+      availability: artwork.availability, framing: artwork.framing || '',
       year: artwork.year?.toString() || '',
     });
     setEditingId(artwork.id);
@@ -228,18 +282,11 @@ export function AdminPage() {
   async function updateCommissionStatus(id: string, status: string) {
     if (!supabaseConfigured) return;
     try {
-      const { error } = await supabase
-        .from('commission_inquiries')
-        .update({ status })
-        .eq('id', id);
+      const { error } = await supabase.from('commission_inquiries').update({ status }).eq('id', id);
       if (error) throw error;
-      setCommissions(prev =>
-        prev.map(c => c.id === id ? { ...c, status: status as CommissionInquiry['status'] } : c)
-      );
+      setCommissions(commissions.map(c => c.id === id ? { ...c, status: status as CommissionInquiry['status'] } : c));
       toast.success('Status updated.');
-    } catch {
-      toast.error('Failed to update status.');
-    }
+    } catch { toast.error('Failed to update status.'); }
   }
 
   const tabs: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
@@ -255,27 +302,37 @@ export function AdminPage() {
       <div className="border-b border-art-pale sticky top-0 bg-art-white z-40">
         <div className="max-w-7xl mx-auto px-4 md:px-10 flex items-center justify-between h-14 md:h-16">
           <p className="font-serif text-base md:text-xl font-light text-art-charcoal">Fine Arc · Admin</p>
-          <a href="/" className="font-sans text-[10px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors">
-            View Site
-          </a>
+          <div className="flex items-center gap-4 md:gap-6">
+            <a href="/" className="font-sans text-[10px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors">
+              View Site
+            </a>
+            <button
+              onClick={signOut}
+              className="flex items-center gap-1.5 font-sans text-[10px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors"
+              aria-label="Sign out"
+            >
+              <LogOut size={12} strokeWidth={1.5} />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-10 py-6 md:py-10">
         {/* Tabs */}
-        <div className="flex mb-8 md:mb-10 border-b border-art-pale">
+        <div className="flex mb-8 md:mb-10 border-b border-art-pale overflow-x-auto scrollbar-hide">
           {tabs.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 font-sans text-[10px] tracking-widest uppercase px-3 md:px-4 py-3 border-b-2 -mb-px transition-all duration-300 flex-1 md:flex-none justify-center md:justify-start ${
+              className={`flex items-center gap-2 font-sans text-[10px] tracking-widest uppercase px-4 py-3 border-b-2 -mb-px transition-all duration-300 flex-none whitespace-nowrap ${
                 tab === t.key
                   ? 'border-art-charcoal text-art-charcoal'
                   : 'border-transparent text-art-muted hover:text-art-charcoal'
               }`}
             >
               {t.icon}
-              <span className="hidden sm:inline">{t.label}</span>
+              {t.label}
             </button>
           ))}
         </div>
@@ -288,7 +345,7 @@ export function AdminPage() {
                 Artworks ({artworks.length})
               </h2>
               <div className="flex items-center gap-3">
-                <button onClick={fetchArtworks} className="text-art-muted hover:text-art-charcoal transition-colors p-1" aria-label="Refresh">
+                <button onClick={fetchArtworks} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Refresh">
                   <RefreshCw size={14} strokeWidth={1.5} />
                 </button>
                 <Button size="sm" onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyArtwork); }}>
@@ -299,7 +356,6 @@ export function AdminPage() {
               </div>
             </div>
 
-            {/* Artwork form */}
             {showForm && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -317,11 +373,8 @@ export function AdminPage() {
                   <Input label="Year" value={form.year} onChange={e => updateForm('year', e.target.value)} />
                   <div>
                     <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Category</label>
-                    <select
-                      value={form.category}
-                      onChange={e => updateForm('category', e.target.value)}
-                      className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-sm py-3 focus:outline-none focus:border-art-charcoal"
-                    >
+                    <select value={form.category} onChange={e => updateForm('category', e.target.value)}
+                      className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-sm py-3 focus:outline-none focus:border-art-charcoal">
                       {['painting','drawing','print','photography','mixed-media','sculpture'].map(c => (
                         <option key={c} value={c}>{c}</option>
                       ))}
@@ -329,11 +382,8 @@ export function AdminPage() {
                   </div>
                   <div>
                     <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Availability</label>
-                    <select
-                      value={form.availability}
-                      onChange={e => updateForm('availability', e.target.value)}
-                      className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-sm py-3 focus:outline-none focus:border-art-charcoal"
-                    >
+                    <select value={form.availability} onChange={e => updateForm('availability', e.target.value)}
+                      className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-sm py-3 focus:outline-none focus:border-art-charcoal">
                       <option value="available">Available</option>
                       <option value="sold">Sold</option>
                       <option value="reserved">Reserved</option>
@@ -344,12 +394,11 @@ export function AdminPage() {
                 <Input
                   label="Image URL (primary)"
                   value={form.images[0]}
-                  onChange={e => setForm(p => ({ ...p, images: [e.target.value, ...p.images.slice(1)] }))}
+                  onChange={e => setForm({ ...form, images: [e.target.value, ...form.images.slice(1)] })}
                   placeholder="https://..."
                 />
                 <Textarea label="Description" value={form.description} onChange={e => updateForm('description', e.target.value)} rows={3} />
                 <Textarea label="Story (italic quote)" value={form.story} onChange={e => updateForm('story', e.target.value)} rows={2} />
-
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <Button onClick={handleSave} className="w-full sm:w-auto">{editingId ? 'Save Changes' : 'Add Artwork'}</Button>
                   <Button variant="secondary" className="w-full sm:w-auto" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
@@ -360,10 +409,7 @@ export function AdminPage() {
               </motion.div>
             )}
 
-            {/* Artwork list */}
-            {artworksLoading ? (
-              <PageLoader />
-            ) : (
+            {artworksLoading ? <PageLoader /> : (
               <div className="divide-y divide-art-pale">
                 {artworks.map(artwork => (
                   <div key={artwork.id} className="flex items-center gap-4 py-4">
@@ -384,11 +430,11 @@ export function AdminPage() {
                     <span className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1 hidden md:block shrink-0 ${statusColors[artwork.availability]}`}>
                       {artwork.availability}
                     </span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button onClick={() => startEdit(artwork)} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Edit">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => startEdit(artwork)} className="text-art-muted hover:text-art-charcoal transition-colors p-2" aria-label="Edit">
                         <Edit2 size={14} strokeWidth={1.5} />
                       </button>
-                      <button onClick={() => handleDelete(artwork.id)} className="text-art-muted hover:text-red-500 transition-colors p-1.5" aria-label="Delete">
+                      <button onClick={() => handleDelete(artwork.id)} className="text-art-muted hover:text-red-500 transition-colors p-2" aria-label="Delete">
                         <Trash2 size={14} strokeWidth={1.5} />
                       </button>
                     </div>
@@ -409,7 +455,7 @@ export function AdminPage() {
               <h2 className="font-serif text-xl md:text-2xl font-light text-art-charcoal">
                 Orders ({orders.length})
               </h2>
-              <button onClick={fetchOrders} className="text-art-muted hover:text-art-charcoal transition-colors p-1" aria-label="Refresh">
+              <button onClick={fetchOrders} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Refresh">
                 <RefreshCw size={14} strokeWidth={1.5} />
               </button>
             </div>
@@ -418,9 +464,7 @@ export function AdminPage() {
               <div className="py-20 text-center">
                 <p className="font-serif text-xl font-light text-art-muted">Connect Supabase to view orders.</p>
               </div>
-            ) : ordersLoading ? (
-              <PageLoader />
-            ) : orders.length === 0 ? (
+            ) : ordersLoading ? <PageLoader /> : orders.length === 0 ? (
               <div className="py-20 text-center">
                 <p className="font-serif text-xl font-light text-art-muted">No orders yet.</p>
               </div>
@@ -428,11 +472,13 @@ export function AdminPage() {
               <div className="space-y-4">
                 {orders.map(order => (
                   <div key={order.id} className="border border-art-pale p-5 md:p-6 space-y-4">
-                    {/* Order header */}
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="font-serif text-base text-art-charcoal">{order.customer_name}</p>
-                        <p className="font-sans text-xs text-art-muted mt-0.5">{order.customer_email}</p>
+                        <a href={`mailto:${order.customer_email}`}
+                          className="font-sans text-xs text-art-muted hover:text-art-charcoal transition-colors mt-0.5 block">
+                          {order.customer_email}
+                        </a>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <span className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1 ${statusColors[order.payment_status] || 'bg-gray-100 text-gray-600'}`}>
@@ -441,7 +487,6 @@ export function AdminPage() {
                         <p className="font-sans text-sm font-medium text-art-charcoal">{formatPrice(order.total)}</p>
                       </div>
                     </div>
-                    {/* Items */}
                     <div className="space-y-1.5">
                       {(order.items || []).map((item, i) => (
                         <div key={i} className="flex justify-between font-sans text-xs text-art-muted">
@@ -450,12 +495,11 @@ export function AdminPage() {
                         </div>
                       ))}
                     </div>
-                    {/* Address + date */}
                     <div className="flex flex-wrap justify-between gap-2 pt-2 border-t border-art-pale">
                       <p className="font-sans text-xs text-art-muted">
                         {[order.customer_address?.line1, order.customer_address?.city, order.customer_address?.postal_code, order.customer_address?.country].filter(Boolean).join(', ')}
                       </p>
-                      <p className="font-sans text-xs text-art-light">{formatDate(order.created_at)}</p>
+                      <p className="font-sans text-xs text-art-light shrink-0">{formatDate(order.created_at)}</p>
                     </div>
                   </div>
                 ))}
@@ -471,7 +515,7 @@ export function AdminPage() {
               <h2 className="font-serif text-xl md:text-2xl font-light text-art-charcoal">
                 Commissions ({commissions.length})
               </h2>
-              <button onClick={fetchCommissions} className="text-art-muted hover:text-art-charcoal transition-colors p-1" aria-label="Refresh">
+              <button onClick={fetchCommissions} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Refresh">
                 <RefreshCw size={14} strokeWidth={1.5} />
               </button>
             </div>
@@ -480,9 +524,7 @@ export function AdminPage() {
               <div className="py-20 text-center">
                 <p className="font-serif text-xl font-light text-art-muted">Connect Supabase to view commission inquiries.</p>
               </div>
-            ) : commissionsLoading ? (
-              <PageLoader />
-            ) : commissions.length === 0 ? (
+            ) : commissionsLoading ? <PageLoader /> : commissions.length === 0 ? (
               <div className="py-20 text-center">
                 <p className="font-serif text-xl font-light text-art-muted">No inquiries yet.</p>
               </div>
@@ -490,40 +532,51 @@ export function AdminPage() {
               <div className="space-y-4">
                 {commissions.map(c => (
                   <div key={c.id} className="border border-art-pale p-5 md:p-6 space-y-4">
-                    {/* Header */}
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="font-serif text-base text-art-charcoal">{c.name}</p>
-                        <p className="font-sans text-xs text-art-muted mt-0.5">{c.email}{c.phone ? ` · ${c.phone}` : ''}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                          <a href={`mailto:${c.email}`}
+                            className="font-sans text-xs text-art-muted hover:text-art-charcoal transition-colors">
+                            {c.email}
+                          </a>
+                          {c.phone && (
+                            <>
+                              <span className="text-art-light">·</span>
+                              <a href={`tel:${c.phone}`}
+                                className="font-sans text-xs text-art-muted hover:text-art-charcoal transition-colors">
+                                {c.phone}
+                              </a>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex flex-wrap items-center gap-3 shrink-0">
                         <select
                           value={c.status}
                           onChange={e => updateCommissionStatus(c.id, e.target.value)}
-                          className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1 border-0 cursor-pointer focus:outline-none ${statusColors[c.status]}`}
+                          className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1.5 border border-transparent rounded-sm cursor-pointer focus:outline-none appearance-none ${statusColors[c.status]}`}
                         >
                           <option value="pending">Pending</option>
                           <option value="reviewed">Reviewed</option>
                           <option value="accepted">Accepted</option>
                           <option value="declined">Declined</option>
                         </select>
-                        <p className="font-sans text-xs text-art-light shrink-0">{formatDate(c.created_at)}</p>
+                        <p className="font-sans text-xs text-art-light">{formatDate(c.created_at)}</p>
                       </div>
                     </div>
-                    {/* Description */}
                     <p className="font-sans text-sm text-art-warm leading-relaxed">{c.project_description}</p>
-                    {/* Specs */}
-                    <div className="flex flex-wrap gap-x-8 gap-y-1.5 pt-2 border-t border-art-pale">
+                    <div className="flex flex-wrap gap-x-8 gap-y-2 pt-3 border-t border-art-pale">
                       {c.size_preferences && (
-                        <div>
-                          <span className="font-sans text-[9px] tracking-widest uppercase text-art-muted">Size </span>
-                          <span className="font-sans text-xs text-art-charcoal">{c.size_preferences}</span>
+                        <div className="space-y-0.5">
+                          <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted">Size</p>
+                          <p className="font-sans text-xs text-art-charcoal">{c.size_preferences}</p>
                         </div>
                       )}
                       {c.color_preferences && (
-                        <div>
-                          <span className="font-sans text-[9px] tracking-widest uppercase text-art-muted">Colour </span>
-                          <span className="font-sans text-xs text-art-charcoal">{c.color_preferences}</span>
+                        <div className="space-y-0.5">
+                          <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted">Colour</p>
+                          <p className="font-sans text-xs text-art-charcoal">{c.color_preferences}</p>
                         </div>
                       )}
                     </div>
@@ -542,7 +595,7 @@ export function AdminPage() {
                 Subscribers ({subscribers.length})
               </h2>
               <div className="flex items-center gap-3">
-                <button onClick={fetchSubscribers} className="text-art-muted hover:text-art-charcoal transition-colors p-1" aria-label="Refresh">
+                <button onClick={fetchSubscribers} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Refresh">
                   <RefreshCw size={14} strokeWidth={1.5} />
                 </button>
                 {subscribers.length > 0 && (
@@ -563,9 +616,7 @@ export function AdminPage() {
               <div className="py-20 text-center">
                 <p className="font-serif text-xl font-light text-art-muted">Connect Supabase to view subscribers.</p>
               </div>
-            ) : subscribersLoading ? (
-              <PageLoader />
-            ) : subscribers.length === 0 ? (
+            ) : subscribersLoading ? <PageLoader /> : subscribers.length === 0 ? (
               <div className="py-20 text-center">
                 <p className="font-serif text-xl font-light text-art-muted">No subscribers yet.</p>
               </div>
@@ -573,7 +624,10 @@ export function AdminPage() {
               <div className="divide-y divide-art-pale">
                 {subscribers.map(s => (
                   <div key={s.id} className="flex items-center justify-between py-3.5 gap-4">
-                    <p className="font-sans text-sm text-art-charcoal truncate">{s.email}</p>
+                    <a href={`mailto:${s.email}`}
+                      className="font-sans text-sm text-art-charcoal hover:text-art-warm transition-colors truncate">
+                      {s.email}
+                    </a>
                     <p className="font-sans text-xs text-art-light shrink-0">{formatDate(s.created_at)}</p>
                   </div>
                 ))}

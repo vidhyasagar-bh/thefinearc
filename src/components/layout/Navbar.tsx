@@ -142,6 +142,12 @@ export function Navbar() {
                   </Link>
                 ))}
               </div>
+              <Link
+                to="/admin"
+                className="font-sans text-[10px] tracking-widest uppercase text-art-light hover:text-art-muted transition-colors mt-4"
+              >
+                Admin ↗
+              </Link>
             </nav>
           </motion.div>
         )}
