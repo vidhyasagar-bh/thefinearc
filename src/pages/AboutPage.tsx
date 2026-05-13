@@ -1,6 +1,5 @@
 import { Layout } from '../components/layout/Layout';
 import { FadeIn } from '../components/ui/FadeIn';
-import { ArtworkAssembly } from '../components/sections/ArtworkAssembly';
 
 export function AboutPage() {
   return (
@@ -136,15 +135,6 @@ export function AboutPage() {
         </div>
       </section>
 
-      <ArtworkAssembly />
-
-      {/* Separator before footer */}
-      <div className="bg-cream-100 py-16 md:py-20 px-6 text-center">
-        <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-4">The Fine Arc</p>
-        <p className="font-serif text-2xl md:text-3xl font-light text-art-charcoal">
-          Every piece, made once.
-        </p>
-      </div>
     </Layout>
   );
 }
