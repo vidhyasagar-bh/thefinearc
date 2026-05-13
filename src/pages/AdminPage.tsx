@@ -100,7 +100,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-art-white flex items-center justify-center px-6">
+    <div className="min-h-svh w-full bg-art-white flex items-center justify-center px-6">
       <div className="w-full max-w-sm space-y-10">
         <div className="text-center space-y-3">
           <div className="flex justify-center"><Lock size={20} strokeWidth={1.5} className="text-art-muted" /></div>
@@ -144,7 +144,7 @@ export function AdminPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
-  if (!authed) return <AdminLogin onSuccess={() => setAuthed(true)} />;
+  if (!authed) return <AdminLogin onSuccess={() => { setAuthed(true); window.scrollTo({ top: 0, behavior: 'instant' }); }} />;
 
   function signOut() { sessionStorage.removeItem('admin_auth'); navigate('/'); }
 
@@ -188,6 +188,8 @@ function AdminDashboard({
   analytics: AnalyticsData | null; setAnalytics: (a: AnalyticsData | null) => void;
   analyticsLoading: boolean; setAnalyticsLoading: (v: boolean) => void;
 }) {
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, []);
+
   // ── data fetchers ────────────────────────────────────────────────────────────
   const fetchArtworks = useCallback(async () => {
     setArtworksLoading(true);
@@ -405,7 +407,7 @@ function AdminDashboard({
 
   // ── render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-art-white overflow-x-hidden">
+    <div className="min-h-svh w-full bg-art-white overflow-x-hidden">
 
       {/* Top bar */}
       <div className="border-b border-art-pale sticky top-0 bg-art-white z-40">
