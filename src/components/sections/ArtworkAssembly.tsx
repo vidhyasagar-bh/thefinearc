@@ -59,11 +59,12 @@ function ArtworkInfo({ artwork, progress }: { artwork: Artwork; progress: Motion
 }
 
 // Each copy is its own component so hooks aren't called in a loop
-function PaintLayer({ startAt, endAt, imageUrl, progress }: {
-  startAt: number; endAt: number;
+// targetOpacity is the layer's final opacity — each layer adds a bigger jump
+function PaintLayer({ startAt, endAt, targetOpacity, imageUrl, progress }: {
+  startAt: number; endAt: number; targetOpacity: number;
   imageUrl: string; progress: MotionValue<number>;
 }) {
-  const opacity = useTransform(progress, [startAt, endAt], [0, 1]);
+  const opacity = useTransform(progress, [startAt, endAt], [0, targetOpacity]);
   return (
     <motion.div
       style={{
@@ -78,29 +79,25 @@ function PaintLayer({ startAt, endAt, imageUrl, progress }: {
 }
 
 function LayeredPainting({ imageUrl, progress }: { imageUrl: string; progress: MotionValue<number> }) {
-  // 4 copies of the same image, each at ~0.27 max opacity
-  // Stacked they sum to ~1.0 — each new copy genuinely adds richness
-  // Layer 1 is always visible (the thin initial wash)
-  // Layers 2-4 fade in one by one as you scroll
-  const LAYER_OPACITY = 0.27;
   const base: React.CSSProperties = {
     position: 'absolute', inset: 0,
     backgroundImage:    `url(${imageUrl})`,
     backgroundSize:     'cover',
     backgroundPosition: 'center',
-    opacity: LAYER_OPACITY,
+    opacity: 0.15,
   };
 
   return (
-    <div className="relative" style={{ width: 'min(40vw, 260px)', height: 'min(53vw, 347px)' }}>
-      {/* Layer 1 — always visible, thin wash */}
+    // Large enough to clearly see each layer change
+    <div className="relative" style={{ width: 'min(55vh, 360px)', height: 'min(73vh, 480px)' }}>
+      {/* Layer 1 — always visible at 15% (faint sketch/wash) */}
       <div style={base} />
-      {/* Layer 2 — adds density */}
-      <PaintLayer startAt={0.20} endAt={0.38} imageUrl={imageUrl} progress={progress} />
-      {/* Layer 3 — richer still */}
-      <PaintLayer startAt={0.45} endAt={0.63} imageUrl={imageUrl} progress={progress} />
-      {/* Layer 4 — full painting */}
-      <PaintLayer startAt={0.68} endAt={0.82} imageUrl={imageUrl} progress={progress} />
+      {/* Layer 2 — jumps to ~40% total */}
+      <PaintLayer startAt={0.20} endAt={0.35} targetOpacity={0.25} imageUrl={imageUrl} progress={progress} />
+      {/* Layer 3 — jumps to ~70% total */}
+      <PaintLayer startAt={0.45} endAt={0.60} targetOpacity={0.30} imageUrl={imageUrl} progress={progress} />
+      {/* Layer 4 — reaches 100% total */}
+      <PaintLayer startAt={0.68} endAt={0.80} targetOpacity={0.30} imageUrl={imageUrl} progress={progress} />
     </div>
   );
 }
