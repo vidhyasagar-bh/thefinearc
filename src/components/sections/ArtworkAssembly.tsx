@@ -44,7 +44,7 @@ function Tile({ col, row, scatter, progress, imageUrl }: {
   const x       = useTransform(progress, [startAt, endAt],  [scatter.x, 0]);
   const y       = useTransform(progress, [startAt, endAt],  [scatter.y, 0]);
   const rotate  = useTransform(progress, [startAt, endAt],  [scatter.r, 0]);
-  const opacity = useTransform(progress, [startAt, fadeEnd], [0, 1]);
+  const opacity = useTransform(progress, [0, startAt, fadeEnd], [0.2, 0.2, 1]);
 
   const bgX = COLS > 1 ? (col / (COLS - 1)) * 100 : 0;
   const bgY = ROWS > 1 ? (row / (ROWS - 1)) * 100 : 0;
@@ -126,23 +126,26 @@ function AssemblyScene({ artwork }: { artwork: Artwork }) {
   const progress = useMotionValue(0);
 
   useEffect(() => {
-    const handleScroll = () => {
+    // rAF loop: reads rect every frame so progress is always accurate
+    // regardless of which element is the scroll container
+    let rafId: number;
+    const tick = () => {
       const el = wrapperRef.current;
-      if (!el) return;
-      const rect           = el.getBoundingClientRect();
-      const scrollableH    = el.offsetHeight - window.innerHeight;
-      const scrolled       = -rect.top; // negative rect.top = how far we've scrolled into it
-      progress.set(Math.max(0, Math.min(1, scrolled / scrollableH)));
+      if (el) {
+        const rect        = el.getBoundingClientRect();
+        const scrollableH = el.offsetHeight - window.innerHeight;
+        if (scrollableH > 0) {
+          progress.set(Math.max(0, Math.min(1, -rect.top / scrollableH)));
+        }
+      }
+      rafId = requestAnimationFrame(tick);
     };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    // Run once immediately in case page loaded mid-scroll
-    handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
   }, [progress]);
 
   return (
-    <div ref={wrapperRef} className="relative" style={{ height: '500vh' }}>
+    <div ref={wrapperRef} className="relative bg-art-charcoal" style={{ height: '350vh' }}>
       <div className="sticky top-0 h-screen overflow-hidden bg-art-charcoal flex items-center justify-center">
 
         {/* Process text — left */}
