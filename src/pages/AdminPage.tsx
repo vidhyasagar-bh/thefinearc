@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -20,7 +20,8 @@ type AdminTab = 'artworks' | 'orders' | 'commissions' | 'analytics';
 interface ArtworkFormState {
   title: string; description: string; story: string; price: string;
   dimensions: string; materials: string; category: ArtworkCategory;
-  images: string[]; availability: 'available' | 'sold' | 'reserved';
+  images: string[]; video_url: string;
+  availability: 'available' | 'sold' | 'reserved';
   framing: string; year: string;
 }
 
@@ -40,7 +41,7 @@ interface AnalyticsData {
 
 const emptyArtwork: ArtworkFormState = {
   title: '', description: '', story: '', price: '', dimensions: '', materials: '',
-  category: 'painting', images: [''], availability: 'available', framing: '',
+  category: 'painting', images: [], video_url: '', availability: 'available', framing: '',
   year: new Date().getFullYear().toString(),
 };
 
@@ -83,6 +84,120 @@ function StatusSelect({
         ))}
       </select>
       <ChevronDown size={9} strokeWidth={2.5} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-50" />
+    </div>
+  );
+}
+
+// ── Media uploader ─────────────────────────────────────────────────────────────
+function MediaUploader({
+  images, onImagesChange, videoUrl, onVideoChange,
+}: {
+  images: string[];
+  onImagesChange: (urls: string[]) => void;
+  videoUrl: string;
+  onVideoChange: (url: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+  const vidInputRef = useRef<HTMLInputElement>(null);
+
+  async function uploadFile(file: File, bucket: string): Promise<string> {
+    const ext = file.name.split('.').pop() ?? 'bin';
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from(bucket).upload(path, file);
+    if (error) throw error;
+    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  }
+
+  async function handleImageFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    if (!supabaseConfigured) { toast.error('Connect Supabase to upload files.'); return; }
+    setUploading(true);
+    try {
+      const urls = await Promise.all(Array.from(files).map(f => uploadFile(f, 'artwork-images')));
+      onImagesChange([...images.filter(Boolean), ...urls]);
+    } catch { toast.error('Image upload failed.'); }
+    setUploading(false);
+  }
+
+  async function handleVideoFile(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    if (!supabaseConfigured) { toast.error('Connect Supabase to upload files.'); return; }
+    setUploading(true);
+    try {
+      const url = await uploadFile(files[0], 'artwork-videos');
+      onVideoChange(url);
+    } catch { toast.error('Video upload failed.'); }
+    setUploading(false);
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Images */}
+      <div>
+        <label className="block font-sans text-[10px] tracking-widest uppercase text-art-muted mb-2">
+          Photos
+        </label>
+        <div
+          onClick={() => imgInputRef.current?.click()}
+          onDragOver={e => e.preventDefault()}
+          onDrop={e => { e.preventDefault(); handleImageFiles(e.dataTransfer.files); }}
+          className="border border-dashed border-art-light hover:border-art-charcoal transition-colors cursor-pointer p-5 text-center select-none"
+        >
+          <p className="font-sans text-xs text-art-muted">
+            {uploading ? 'Uploading…' : <>Drop images here or <span className="text-art-charcoal underline">browse</span></>}
+          </p>
+          <input ref={imgInputRef} type="file" accept="image/*" multiple className="hidden"
+            onChange={e => handleImageFiles(e.target.files)} />
+        </div>
+        {images.filter(Boolean).length > 0 && (
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-3">
+            {images.filter(Boolean).map((url, i) => (
+              <div key={i} className="relative aspect-square group">
+                <img src={url} alt="" className="w-full h-full object-cover" />
+                <button type="button" onClick={() => onImagesChange(images.filter((_, j) => j !== i))}
+                  className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 text-white flex items-center justify-center text-xs hover:bg-black/90 transition-colors opacity-0 group-hover:opacity-100"
+                  aria-label="Remove">×</button>
+                {i === 0 && (
+                  <span className="absolute bottom-0.5 left-0.5 font-sans text-[8px] uppercase tracking-wide bg-black/50 text-white px-1">
+                    Primary
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Video */}
+      <div>
+        <label className="block font-sans text-[10px] tracking-widest uppercase text-art-muted mb-2">
+          Video <span className="normal-case tracking-normal text-art-light">(optional)</span>
+        </label>
+        {videoUrl ? (
+          <div className="flex items-center gap-3 p-3 border border-art-pale">
+            <video src={videoUrl} className="w-16 h-12 object-cover shrink-0" />
+            <p className="font-sans text-xs text-art-muted flex-1 truncate">Video uploaded</p>
+            <button type="button" onClick={() => onVideoChange('')}
+              className="font-sans text-xs text-red-400 hover:text-red-600 transition-colors shrink-0">
+              Remove
+            </button>
+          </div>
+        ) : (
+          <div
+            onClick={() => vidInputRef.current?.click()}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); handleVideoFile(e.dataTransfer.files); }}
+            className="border border-dashed border-art-light hover:border-art-charcoal transition-colors cursor-pointer p-5 text-center select-none"
+          >
+            <p className="font-sans text-xs text-art-muted">
+              {uploading ? 'Uploading…' : <>Drop a video or <span className="text-art-charcoal underline">browse</span></>}
+            </p>
+            <input ref={vidInputRef} type="file" accept="video/*" className="hidden"
+              onChange={e => handleVideoFile(e.target.files)} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -267,6 +382,7 @@ function AdminDashboard({
         title: form.title, description: form.description, story: form.story || null,
         price: parseFloat(form.price), dimensions: form.dimensions, materials: form.materials,
         category: form.category, images: form.images.filter(Boolean),
+        video_url: form.video_url || null,
         availability: form.availability, framing: form.framing || null,
         year: parseInt(form.year) || null,
       };
@@ -299,7 +415,8 @@ function AdminDashboard({
       title: artwork.title, description: artwork.description, story: artwork.story || '',
       price: artwork.price.toString(), dimensions: artwork.dimensions,
       materials: artwork.materials, category: artwork.category,
-      images: artwork.images.length ? artwork.images : [''],
+      images: artwork.images.length ? artwork.images : [],
+      video_url: artwork.video_url || '',
       availability: artwork.availability, framing: artwork.framing || '',
       year: artwork.year?.toString() || '',
     });
@@ -506,9 +623,12 @@ function AdminDashboard({
                   <Input label="Framing" value={form.framing}
                     onChange={e => updateForm('framing', e.target.value)} placeholder="Unframed" />
                 </div>
-                <Input label="Image URL (primary)" value={form.images[0]}
-                  onChange={e => setForm({ ...form, images: [e.target.value, ...form.images.slice(1)] })}
-                  placeholder="https://..." />
+                <MediaUploader
+                  images={form.images}
+                  onImagesChange={imgs => setForm({ ...form, images: imgs })}
+                  videoUrl={form.video_url}
+                  onVideoChange={url => setForm({ ...form, video_url: url })}
+                />
                 <Textarea label="Description" value={form.description}
                   onChange={e => updateForm('description', e.target.value)} rows={3} />
                 <Textarea label="Story (italic quote)" value={form.story}

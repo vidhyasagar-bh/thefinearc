@@ -11,6 +11,7 @@ export interface Artwork {
   availability: 'available' | 'sold' | 'reserved';
   framing?: string;
   year?: number;
+  video_url?: string;
   created_at: string;
   updated_at?: string;
 }

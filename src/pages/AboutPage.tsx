@@ -1,6 +1,7 @@
 import { Layout } from '../components/layout/Layout';
 import { FadeIn } from '../components/ui/FadeIn';
 import { Link } from 'react-router-dom';
+import { ArtworkAssembly } from '../components/sections/ArtworkAssembly';
 
 export function AboutPage() {
   return (
@@ -100,6 +101,8 @@ export function AboutPage() {
           </div>
         </div>
       </section>
+
+      <ArtworkAssembly />
 
       {/* Process */}
       <section className="py-24 md:py-40 px-6 md:px-12 lg:px-20 bg-art-white">
