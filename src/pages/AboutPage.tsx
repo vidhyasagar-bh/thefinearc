@@ -102,8 +102,6 @@ export function AboutPage() {
         </div>
       </section>
 
-      <ArtworkAssembly />
-
       {/* Process */}
       <section className="py-24 md:py-40 px-6 md:px-12 lg:px-20 bg-art-white">
         <div className="max-w-8xl mx-auto">
@@ -138,6 +136,8 @@ export function AboutPage() {
           </div>
         </div>
       </section>
+
+      <ArtworkAssembly />
 
       {/* CTA */}
       <section className="py-20 md:py-32 bg-art-charcoal text-art-white text-center px-6">

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { motion, useScroll, useTransform, type MotionValue } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useArtworks } from '../../hooks/useArtworks';
@@ -23,24 +23,29 @@ const SCATTER = [
   { x:  300, y:  400, r:  11 },
 ];
 
-function Tile({
-  col, row, scatter, progress, imageUrl,
-}: {
-  col: number;
-  row: number;
+const STAGES = [
+  { label: 'Observation', body: 'Every work begins long before the first mark — in hours of looking, sitting with a subject until it stops being an object.' },
+  { label: 'First marks',  body: 'The initial layer is always wrong. It is a necessary wrong — a commitment that forces every decision that follows.' },
+  { label: 'Building',     body: 'Colour, tone, texture. Each layer added slowly, often sanded back. The surface accumulates time.' },
+  { label: 'Completion',   body: 'A painting is finished not when nothing can be added, but when nothing needs to be.' },
+];
+
+// Each component calls its own hooks — no hooks inside loops
+function Tile({ col, row, scatter, progress, imageUrl }: {
+  col: number; row: number;
   scatter: { x: number; y: number; r: number };
   progress: MotionValue<number>;
   imageUrl: string;
 }) {
-  const idx = col + row * COLS;
+  const idx     = col + row * COLS;
   const startAt = (idx / (COLS * ROWS)) * 0.55;
-  const endAt = startAt + 0.3;
+  const endAt   = startAt + 0.3;
   const fadeEnd = Math.min(startAt + 0.12, endAt);
 
   const x       = useTransform(progress, [startAt, endAt],  [scatter.x, 0]);
   const y       = useTransform(progress, [startAt, endAt],  [scatter.y, 0]);
   const rotate  = useTransform(progress, [startAt, endAt],  [scatter.r, 0]);
-  const opacity = useTransform(progress, [startAt, fadeEnd],[0, 1]);
+  const opacity = useTransform(progress, [startAt, fadeEnd], [0, 1]);
 
   const bgX = COLS > 1 ? (col / (COLS - 1)) * 100 : 0;
   const bgY = ROWS > 1 ? (row / (ROWS - 1)) * 100 : 0;
@@ -62,72 +67,112 @@ function Tile({
   );
 }
 
-function AssemblyScene({ artwork }: { artwork: Artwork }) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: wrapperRef,
-    offset: ['start start', 'end end'],
-  });
+function StageText({ index, stage, progress }: {
+  index: number;
+  stage: typeof STAGES[number];
+  progress: MotionValue<number>;
+}) {
+  const s     = index * 0.20;
+  const peak  = s + 0.10;
+  const e     = s + 0.18;
+  const fadeOut = Math.min(e + 0.06, 0.78);
 
-  const sectionOpacity = useTransform(scrollYProgress, [0, 0.04], [0, 1]);
-  const textOpacity    = useTransform(scrollYProgress, [0.72, 0.92], [0, 1]);
-  const textY          = useTransform(scrollYProgress, [0.72, 0.92], [20, 0]);
+  const opacity = useTransform(progress, [s, peak, e, fadeOut], [0, 1, 1, 0]);
+  const y       = useTransform(progress, [s, peak], [12, 0]);
 
   return (
-    <div ref={wrapperRef} className="relative" style={{ height: '400vh' }}>
-      <motion.div
-        style={{ opacity: sectionOpacity }}
-        className="sticky top-0 h-screen flex items-center justify-center overflow-hidden bg-art-charcoal"
-      >
-        {/* Label */}
-        <p className="absolute top-8 left-8 md:top-12 md:left-14 font-sans text-[9px] tracking-widest uppercase text-white/25">
-          Signature Work
-        </p>
+    <motion.div style={{ opacity, y }} className="absolute inset-0 flex flex-col justify-center">
+      <p className="font-sans text-[9px] tracking-widest uppercase text-white/35 mb-3">{stage.label}</p>
+      <p className="font-sans text-sm text-white/55 leading-relaxed">{stage.body}</p>
+    </motion.div>
+  );
+}
 
-        {/* Tile grid */}
-        <div
-          className="relative"
-          style={{ width: 'min(55vw, 300px)', aspectRatio: '3/4' }}
-        >
+function ArtworkInfo({ artwork, progress }: { artwork: Artwork; progress: MotionValue<number> }) {
+  const opacity = useTransform(progress, [0.80, 0.95], [0, 1]);
+  const y       = useTransform(progress, [0.80, 0.95], [16, 0]);
+
+  return (
+    <motion.div
+      style={{ opacity, y }}
+      className="absolute right-8 md:right-14 top-1/2 -translate-y-1/2 text-right w-[150px] md:w-[200px]"
+    >
+      <p className="font-sans text-[9px] tracking-widest uppercase text-white/35 mb-2">
+        {[artwork.category, artwork.year].filter(Boolean).join(' · ')}
+      </p>
+      <h2 className="font-serif text-xl md:text-2xl font-light text-white leading-tight mb-2">
+        {artwork.title}
+      </h2>
+      {artwork.materials && (
+        <p className="font-sans text-[11px] text-white/40 mb-5">{artwork.materials}</p>
+      )}
+      <div className="flex items-center justify-end gap-4">
+        <span className="font-serif text-base text-white/80">{formatPrice(artwork.price)}</span>
+        {artwork.availability === 'available' && (
+          <Link
+            to={`/artwork/${artwork.id}`}
+            className="font-sans text-[10px] tracking-widest uppercase text-white/50 hover:text-white border-b border-white/20 hover:border-white/60 pb-0.5 transition-colors duration-300"
+          >
+            View Work
+          </Link>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function AssemblyScene({ artwork }: { artwork: Artwork }) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [range, setRange] = useState<[number, number]>([0, 1]);
+
+  // Window-level scroll avoids overflow-x:hidden on the layout breaking target-based tracking
+  const { scrollY } = useScroll();
+
+  useEffect(() => {
+    const update = () => {
+      const el = wrapperRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      setRange([top, top + el.offsetHeight - window.innerHeight]);
+    };
+    update();
+    window.addEventListener('resize', update, { passive: true });
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  const progress = useTransform(scrollY, range, [0, 1], { clamp: true });
+
+  return (
+    <div ref={wrapperRef} className="relative" style={{ height: '500vh' }}>
+      <div className="sticky top-0 h-screen overflow-hidden bg-art-charcoal flex items-center justify-center">
+
+        {/* Process text — left */}
+        <div className="absolute left-8 md:left-14 top-1/2 -translate-y-1/2 w-[160px] md:w-[210px]">
+          <p className="font-sans text-[9px] tracking-widest uppercase text-white/20 mb-8">The Process</p>
+          <div className="relative h-36">
+            {STAGES.map((stage, i) => (
+              <StageText key={stage.label} index={i} stage={stage} progress={progress} />
+            ))}
+          </div>
+        </div>
+
+        {/* Tile grid — centre */}
+        <div className="relative" style={{ width: 'min(42vw, 260px)', aspectRatio: '3/4' }}>
           {SCATTER.map((scatter, i) => (
             <Tile
               key={i}
               col={i % COLS}
               row={Math.floor(i / COLS)}
               scatter={scatter}
-              progress={scrollYProgress}
+              progress={progress}
               imageUrl={artwork.images[0]}
             />
           ))}
         </div>
 
-        {/* Text */}
-        <motion.div
-          style={{ opacity: textOpacity, y: textY }}
-          className="absolute bottom-10 md:bottom-14 left-6 right-6 md:left-auto md:right-12 md:max-w-[240px] md:text-right"
-        >
-          <p className="font-sans text-[9px] tracking-widest uppercase text-white/35 mb-2">
-            {[artwork.category, artwork.year].filter(Boolean).join(' · ')}
-          </p>
-          <h2 className="font-serif text-2xl md:text-3xl font-light text-white leading-tight mb-2">
-            {artwork.title}
-          </h2>
-          {artwork.materials && (
-            <p className="font-sans text-[11px] text-white/40 mb-5">{artwork.materials}</p>
-          )}
-          <div className="flex items-center gap-5 md:justify-end">
-            <span className="font-serif text-base text-white/80">{formatPrice(artwork.price)}</span>
-            {artwork.availability === 'available' && (
-              <Link
-                to={`/artwork/${artwork.id}`}
-                className="font-sans text-[10px] tracking-widest uppercase text-white/50 hover:text-white border-b border-white/20 hover:border-white/60 pb-0.5 transition-colors duration-300"
-              >
-                View Work
-              </Link>
-            )}
-          </div>
-        </motion.div>
-      </motion.div>
+        {/* Artwork info — right */}
+        <ArtworkInfo artwork={artwork} progress={progress} />
+      </div>
     </div>
   );
 }
