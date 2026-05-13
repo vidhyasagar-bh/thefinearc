@@ -115,9 +115,6 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
           </div>
           <Button type="submit" size="lg" className="w-full">Enter Dashboard</Button>
         </form>
-        <p className="font-sans text-center text-[10px] text-art-light">
-          Set <code className="text-art-muted">VITE_ADMIN_PASSWORD</code> in your environment.
-        </p>
       </div>
     </div>
   );
