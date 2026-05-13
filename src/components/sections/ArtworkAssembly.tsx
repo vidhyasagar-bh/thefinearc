@@ -8,19 +8,20 @@ import type { Artwork } from '../../types';
 const COLS = 3;
 const ROWS = 4;
 
+// Scatter values kept small enough to stay inside the viewport on any screen
 const SCATTER = [
-  { x: -280, y: -180, r: -14 },
-  { x:   90, y: -320, r:   9 },
-  { x:  340, y: -160, r: -11 },
-  { x: -380, y:  -40, r:  19 },
-  { x: -130, y:  190, r: -23 },
-  { x:  420, y:   90, r:  17 },
-  { x: -230, y:  290, r:  -9 },
-  { x:  180, y: -110, r:  28 },
-  { x:  360, y:  260, r: -20 },
-  { x: -350, y:  380, r:  14 },
-  { x:  -70, y:  340, r: -16 },
-  { x:  300, y:  400, r:  11 },
+  { x: -110, y:  -90, r: -12 },
+  { x:    0, y: -130, r:   8 },
+  { x:  120, y:  -70, r: -10 },
+  { x: -140, y:  -20, r:  16 },
+  { x:  -55, y:   85, r: -18 },
+  { x:  145, y:   35, r:  14 },
+  { x:  -85, y:  115, r:  -8 },
+  { x:   65, y:  -55, r:  22 },
+  { x:  130, y:  100, r: -15 },
+  { x: -120, y:  140, r:  13 },
+  { x:  -25, y:  125, r: -13 },
+  { x:  105, y:  150, r:  10 },
 ];
 
 const STAGES = [
@@ -30,6 +31,7 @@ const STAGES = [
   { label: 'Completion',   body: 'A painting is finished not when nothing can be added, but when nothing needs to be.' },
 ];
 
+// CSS Grid layout — no absolute positioning, no clipping issues
 function Tile({ col, row, scatter, progress, imageUrl }: {
   col: number; row: number;
   scatter: { x: number; y: number; r: number };
@@ -39,12 +41,11 @@ function Tile({ col, row, scatter, progress, imageUrl }: {
   const idx     = col + row * COLS;
   const startAt = (idx / (COLS * ROWS)) * 0.55;
   const endAt   = startAt + 0.3;
-  const fadeEnd = Math.min(startAt + 0.12, endAt);
 
-  const x       = useTransform(progress, [startAt, endAt],  [scatter.x, 0]);
-  const y       = useTransform(progress, [startAt, endAt],  [scatter.y, 0]);
-  const rotate  = useTransform(progress, [startAt, endAt],  [scatter.r, 0]);
-  const opacity = useTransform(progress, [0, startAt, fadeEnd], [0.2, 0.2, 1]);
+  const x       = useTransform(progress, [startAt, endAt], [scatter.x, 0]);
+  const y       = useTransform(progress, [startAt, endAt], [scatter.y, 0]);
+  const rotate  = useTransform(progress, [startAt, endAt], [scatter.r, 0]);
+  const opacity = useTransform(progress, [0, startAt, Math.min(startAt + 0.12, endAt)], [0.25, 0.25, 1]);
 
   const bgX = COLS > 1 ? (col / (COLS - 1)) * 100 : 0;
   const bgY = ROWS > 1 ? (row / (ROWS - 1)) * 100 : 0;
@@ -53,11 +54,6 @@ function Tile({ col, row, scatter, progress, imageUrl }: {
     <motion.div
       style={{
         x, y, rotate, opacity,
-        position: 'absolute',
-        left:   `${(col / COLS) * 100}%`,
-        top:    `${(row / ROWS) * 100}%`,
-        width:  `${100 / COLS}%`,
-        height: `${100 / ROWS}%`,
         backgroundImage:    `url(${imageUrl})`,
         backgroundSize:     `${COLS * 100}% ${ROWS * 100}%`,
         backgroundPosition: `${bgX}% ${bgY}%`,
@@ -122,12 +118,9 @@ function ArtworkInfo({ artwork, progress }: { artwork: Artwork; progress: Motion
 
 function AssemblyScene({ artwork }: { artwork: Artwork }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  // Raw motion value — updated directly on scroll, no React re-renders
-  const progress = useMotionValue(0);
+  const progress   = useMotionValue(0);
 
   useEffect(() => {
-    // rAF loop: reads rect every frame so progress is always accurate
-    // regardless of which element is the scroll container
     let rafId: number;
     const tick = () => {
       const el = wrapperRef.current;
@@ -145,8 +138,8 @@ function AssemblyScene({ artwork }: { artwork: Artwork }) {
   }, [progress]);
 
   return (
-    <div ref={wrapperRef} className="relative bg-art-charcoal" style={{ height: '350vh' }}>
-      <div className="sticky top-0 h-screen overflow-hidden bg-art-charcoal flex items-center justify-center">
+    <div ref={wrapperRef} className="bg-art-charcoal" style={{ height: '350vh' }}>
+      <div className="sticky top-0 bg-art-charcoal flex items-center justify-center" style={{ height: '100vh' }}>
 
         {/* Process text — left */}
         <div className="absolute left-8 md:left-14 top-1/2 -translate-y-1/2 w-[155px] md:w-[210px]">
@@ -158,8 +151,16 @@ function AssemblyScene({ artwork }: { artwork: Artwork }) {
           </div>
         </div>
 
-        {/* Tile grid — centre. Explicit height avoids aspect-ratio collapsing to 0 with all-absolute children */}
-        <div className="relative" style={{ width: 'min(42vw, 260px)', height: 'min(56vw, 347px)' }}>
+        {/* Tile grid — CSS Grid, no absolute positioning, no clipping */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+            gridTemplateRows: `repeat(${ROWS}, 1fr)`,
+            width: 'min(38vw, 240px)',
+            height: 'min(51vw, 320px)',
+          }}
+        >
           {SCATTER.map((scatter, i) => (
             <Tile
               key={i}
