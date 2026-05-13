@@ -5,13 +5,6 @@ import { useArtworks } from '../../hooks/useArtworks';
 import { formatPrice } from '../../utils/format';
 import type { Artwork } from '../../types';
 
-const COLS = 3;
-const ROWS = 4;
-
-// Each row appears at a different scroll position — top to bottom
-const ROW_START = [0.00, 0.22, 0.44, 0.66];
-const ROW_END   = [0.18, 0.40, 0.58, 0.80];
-
 const STAGES = [
   { label: 'Observation', body: 'Every work begins long before the first mark — in hours of looking, sitting with a subject until it stops being an object.' },
   { label: 'First marks',  body: 'The initial layer is always wrong. It is a necessary wrong — a commitment that forces every decision that follows.' },
@@ -19,40 +12,19 @@ const STAGES = [
   { label: 'Completion',   body: 'A painting is finished not when nothing can be added, but when nothing needs to be.' },
 ];
 
-function Tile({ col, row, progress, imageUrl }: {
-  col: number; row: number;
-  progress: MotionValue<number>;
-  imageUrl: string;
-}) {
-  const opacity = useTransform(progress, [ROW_START[row], ROW_END[row]], [0, 1]);
-  const y       = useTransform(progress, [ROW_START[row], ROW_END[row]], [28, 0]);
-
-  const bgX = COLS > 1 ? (col / (COLS - 1)) * 100 : 0;
-  const bgY = ROWS > 1 ? (row / (ROWS - 1)) * 100 : 0;
-
-  return (
-    <motion.div
-      style={{
-        opacity, y,
-        backgroundImage:    `url(${imageUrl})`,
-        backgroundSize:     `${COLS * 100}% ${ROWS * 100}%`,
-        backgroundPosition: `${bgX}% ${bgY}%`,
-      }}
-    />
-  );
-}
-
 function StageText({ index, stage, progress }: {
   index: number;
   stage: typeof STAGES[number];
   progress: MotionValue<number>;
 }) {
-  const s       = ROW_START[index];
-  const peak    = s + 0.09;
-  const e       = ROW_END[index];
-  const fadeOut = Math.min(e + 0.08, 0.82);
-
-  const opacity = useTransform(progress, [s, peak, e, fadeOut], [0, 1, 1, 0]);
+  const windows = [
+    [0.00, 0.08, 0.22, 0.30],
+    [0.22, 0.30, 0.50, 0.58],
+    [0.50, 0.58, 0.76, 0.84],
+    [0.76, 0.84, 1.00, 1.00],
+  ];
+  const [s, peak, e, out] = windows[index];
+  const opacity = useTransform(progress, [s, peak, e, out], [0, 1, 1, 0]);
   const y       = useTransform(progress, [s, peak], [10, 0]);
 
   return (
@@ -66,33 +38,54 @@ function StageText({ index, stage, progress }: {
 function ArtworkInfo({ artwork, progress }: { artwork: Artwork; progress: MotionValue<number> }) {
   const opacity = useTransform(progress, [0.82, 0.97], [0, 1]);
   const y       = useTransform(progress, [0.82, 0.97], [14, 0]);
-
   return (
-    <motion.div
-      style={{ opacity, y }}
-      className="absolute right-8 md:right-14 top-1/2 -translate-y-1/2 text-right w-[150px] md:w-[200px]"
-    >
+    <motion.div style={{ opacity, y }} className="absolute right-8 md:right-14 top-1/2 -translate-y-1/2 text-right w-[150px] md:w-[200px]">
       <p className="font-sans text-[9px] tracking-widest uppercase text-white/35 mb-2">
         {[artwork.category, artwork.year].filter(Boolean).join(' · ')}
       </p>
-      <h2 className="font-serif text-xl md:text-2xl font-light text-white leading-tight mb-2">
-        {artwork.title}
-      </h2>
-      {artwork.materials && (
-        <p className="font-sans text-[11px] text-white/40 mb-5">{artwork.materials}</p>
-      )}
+      <h2 className="font-serif text-xl md:text-2xl font-light text-white leading-tight mb-2">{artwork.title}</h2>
+      {artwork.materials && <p className="font-sans text-[11px] text-white/40 mb-5">{artwork.materials}</p>}
       <div className="flex items-center justify-end gap-4">
         <span className="font-serif text-base text-white/80">{formatPrice(artwork.price)}</span>
         {artwork.availability === 'available' && (
-          <Link
-            to={`/artwork/${artwork.id}`}
-            className="font-sans text-[10px] tracking-widest uppercase text-white/50 hover:text-white border-b border-white/20 hover:border-white/60 pb-0.5 transition-colors duration-300"
-          >
+          <Link to={`/artwork/${artwork.id}`}
+            className="font-sans text-[10px] tracking-widest uppercase text-white/50 hover:text-white border-b border-white/20 hover:border-white/60 pb-0.5 transition-colors duration-300">
             View Work
           </Link>
         )}
       </div>
     </motion.div>
+  );
+}
+
+function LayeredPainting({ imageUrl, progress }: { imageUrl: string; progress: MotionValue<number> }) {
+  // Layer 2 fades in at progress 0.22–0.52
+  const layer2Opacity = useTransform(progress, [0.22, 0.52], [0, 1]);
+  // Layer 3 fades in at progress 0.50–0.80
+  const layer3Opacity = useTransform(progress, [0.50, 0.80], [0, 1]);
+
+  const base: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    backgroundImage:    `url(${imageUrl})`,
+    backgroundSize:     'cover',
+    backgroundPosition: 'center',
+  };
+
+  return (
+    <div
+      className="relative"
+      style={{ width: 'min(40vw, 260px)', height: 'min(53vw, 347px)' }}
+    >
+      {/* Layer 1 — base: always visible, desaturated + dark (underpainting) */}
+      <div style={{ ...base, filter: 'grayscale(100%) brightness(0.55)' }} />
+
+      {/* Layer 2 — builds colour and value */}
+      <motion.div style={{ ...base, filter: 'grayscale(25%) brightness(0.85)', opacity: layer2Opacity }} />
+
+      {/* Layer 3 — final full-colour layer */}
+      <motion.div style={{ ...base, opacity: layer3Opacity }} />
+    </div>
   );
 }
 
@@ -119,10 +112,8 @@ function AssemblyScene({ artwork }: { artwork: Artwork }) {
 
   return (
     <div ref={wrapperRef} className="bg-art-charcoal" style={{ height: '320vh' }}>
-      <div
-        className="sticky top-0 bg-art-charcoal flex items-center justify-center"
-        style={{ height: '100vh' }}
-      >
+      <div className="sticky top-0 bg-art-charcoal flex items-center justify-center" style={{ height: '100vh' }}>
+
         {/* Process text — left */}
         <div className="absolute left-8 md:left-14 top-1/2 -translate-y-1/2 w-[155px] md:w-[210px]">
           <p className="font-sans text-[9px] tracking-widest uppercase text-white/20 mb-8">The Process</p>
@@ -133,28 +124,10 @@ function AssemblyScene({ artwork }: { artwork: Artwork }) {
           </div>
         </div>
 
-        {/* Painting — builds row by row */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-            gridTemplateRows: `repeat(${ROWS}, 1fr)`,
-            width: 'min(38vw, 240px)',
-            height: 'min(51vw, 320px)',
-          }}
-        >
-          {Array.from({ length: COLS * ROWS }, (_, i) => (
-            <Tile
-              key={i}
-              col={i % COLS}
-              row={Math.floor(i / COLS)}
-              progress={progress}
-              imageUrl={artwork.images[0]}
-            />
-          ))}
-        </div>
+        {/* Layered painting — centre */}
+        <LayeredPainting imageUrl={artwork.images[0]} progress={progress} />
 
-        {/* Artwork info — right, appears once fully built */}
+        {/* Artwork info — right */}
         <ArtworkInfo artwork={artwork} progress={progress} />
       </div>
     </div>
