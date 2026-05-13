@@ -158,8 +158,8 @@ function AssemblyScene({ artwork }: { artwork: Artwork }) {
           </div>
         </div>
 
-        {/* Tile grid — centre */}
-        <div className="relative" style={{ width: 'min(42vw, 260px)', aspectRatio: '3/4' }}>
+        {/* Tile grid — centre. Explicit height avoids aspect-ratio collapsing to 0 with all-absolute children */}
+        <div className="relative" style={{ width: 'min(42vw, 260px)', height: 'min(56vw, 347px)' }}>
           {SCATTER.map((scatter, i) => (
             <Tile
               key={i}
