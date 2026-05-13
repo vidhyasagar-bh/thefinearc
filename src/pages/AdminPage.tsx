@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, Trash2, Eye, Package, MessageSquare, Users, RefreshCw, LogOut, Lock } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, Package, MessageSquare, BarChart2, RefreshCw, LogOut, Lock, TrendingUp } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input, Textarea } from '../components/ui/Input';
 import { PageLoader } from '../components/ui/LoadingSpinner';
-import type { Artwork, ArtworkCategory, CommissionInquiry, NewsletterSubscriber } from '../types';
+import type { Artwork, ArtworkCategory, CommissionInquiry } from '../types';
 import { formatPrice, formatDate } from '../utils/format';
+import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { mockArtworks } from '../lib/mockData';
 
-type AdminTab = 'artworks' | 'orders' | 'commissions' | 'subscribers';
+type AdminTab = 'artworks' | 'orders' | 'commissions' | 'analytics';
 
 interface ArtworkFormState {
   title: string;
@@ -35,37 +36,42 @@ interface Order {
   items: { artwork_title: string; quantity: number; price: number }[];
   total: number;
   payment_status: string;
+  fulfillment_status: string;
   created_at: string;
 }
 
+interface AnalyticsData {
+  totalRevenue: number;
+  totalOrders: number;
+  artworkCounts: { available: number; reserved: number; sold: number; total: number };
+  commissionCounts: { pending: number; accepted: number; declined: number; total: number };
+  recentOrders: Order[];
+}
+
 const emptyArtwork: ArtworkFormState = {
-  title: '',
-  description: '',
-  story: '',
-  price: '',
-  dimensions: '',
-  materials: '',
-  category: 'painting',
-  images: [''],
-  availability: 'available',
-  framing: '',
+  title: '', description: '', story: '', price: '', dimensions: '', materials: '',
+  category: 'painting', images: [''], availability: 'available', framing: '',
   year: new Date().getFullYear().toString(),
 };
 
 const statusColors: Record<string, string> = {
-  pending:   'bg-yellow-50 text-yellow-700',
-  reviewed:  'bg-blue-50 text-blue-700',
-  accepted:  'bg-green-50 text-green-700',
-  declined:  'bg-red-50 text-red-600',
-  paid:      'bg-green-50 text-green-700',
-  failed:    'bg-red-50 text-red-600',
-  refunded:  'bg-gray-100 text-gray-600',
-  available: 'bg-green-50 text-green-700',
-  sold:      'bg-red-50 text-red-600',
-  reserved:  'bg-yellow-50 text-yellow-700',
+  pending:    'bg-yellow-50 text-yellow-700',
+  accepted:   'bg-green-50 text-green-700',
+  declined:   'bg-red-50 text-red-600',
+  paid:       'bg-green-50 text-green-700',
+  failed:     'bg-red-50 text-red-600',
+  refunded:   'bg-gray-100 text-gray-600',
+  available:  'bg-green-50 text-green-700',
+  sold:       'bg-red-50 text-red-600',
+  reserved:   'bg-yellow-50 text-yellow-700',
+  processing: 'bg-blue-50 text-blue-700',
+  confirmed:  'bg-indigo-50 text-indigo-700',
+  preparing:  'bg-purple-50 text-purple-700',
+  shipped:    'bg-teal-50 text-teal-700',
+  delivered:  'bg-green-50 text-green-700',
 };
 
-// ── Login Gate ────────────────────────────────────────────────────────────────
+// ── Login Gate ─────────────────────────────────────────────────────────────────
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
@@ -120,30 +126,26 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-// ── Main Dashboard ─────────────────────────────────────────────────────────────
+// ── Main ───────────────────────────────────────────────────────────────────────
 export function AdminPage() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem('admin_auth') === '1');
   const [tab, setTab] = useState<AdminTab>('artworks');
   const navigate = useNavigate();
 
-  // — Artworks —
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [artworksLoading, setArtworksLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyArtwork);
 
-  // — Orders —
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
-  // — Commissions —
   const [commissions, setCommissions] = useState<CommissionInquiry[]>([]);
   const [commissionsLoading, setCommissionsLoading] = useState(false);
 
-  // — Subscribers —
-  const [subscribers, setSubscribers] = useState<NewsletterSubscriber[]>([]);
-  const [subscribersLoading, setSubscribersLoading] = useState(false);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   if (!authed) {
     return <AdminLogin onSuccess={() => setAuthed(true)} />;
@@ -154,24 +156,25 @@ export function AdminPage() {
     navigate('/');
   }
 
-  return <AdminDashboard tab={tab} setTab={setTab} signOut={signOut}
+  return <AdminDashboard
+    tab={tab} setTab={setTab} signOut={signOut}
     artworks={artworks} setArtworks={setArtworks} artworksLoading={artworksLoading} setArtworksLoading={setArtworksLoading}
     showForm={showForm} setShowForm={setShowForm} editingId={editingId} setEditingId={setEditingId}
     form={form} setForm={setForm}
     orders={orders} setOrders={setOrders} ordersLoading={ordersLoading} setOrdersLoading={setOrdersLoading}
     commissions={commissions} setCommissions={setCommissions} commissionsLoading={commissionsLoading} setCommissionsLoading={setCommissionsLoading}
-    subscribers={subscribers} setSubscribers={setSubscribers} subscribersLoading={subscribersLoading} setSubscribersLoading={setSubscribersLoading}
+    analytics={analytics} setAnalytics={setAnalytics} analyticsLoading={analyticsLoading} setAnalyticsLoading={setAnalyticsLoading}
   />;
 }
 
-// Split into separate component so hooks run unconditionally after auth check
+// ── Dashboard ──────────────────────────────────────────────────────────────────
 function AdminDashboard({
   tab, setTab, signOut,
   artworks, setArtworks, artworksLoading, setArtworksLoading,
   showForm, setShowForm, editingId, setEditingId, form, setForm,
   orders, setOrders, ordersLoading, setOrdersLoading,
   commissions, setCommissions, commissionsLoading, setCommissionsLoading,
-  subscribers, setSubscribers, subscribersLoading, setSubscribersLoading,
+  analytics, setAnalytics, analyticsLoading, setAnalyticsLoading,
 }: {
   tab: AdminTab; setTab: (t: AdminTab) => void; signOut: () => void;
   artworks: Artwork[]; setArtworks: (a: Artwork[]) => void; artworksLoading: boolean; setArtworksLoading: (v: boolean) => void;
@@ -179,7 +182,7 @@ function AdminDashboard({
   form: ArtworkFormState; setForm: (f: ArtworkFormState) => void;
   orders: Order[]; setOrders: (o: Order[]) => void; ordersLoading: boolean; setOrdersLoading: (v: boolean) => void;
   commissions: CommissionInquiry[]; setCommissions: (c: CommissionInquiry[]) => void; commissionsLoading: boolean; setCommissionsLoading: (v: boolean) => void;
-  subscribers: NewsletterSubscriber[]; setSubscribers: (s: NewsletterSubscriber[]) => void; subscribersLoading: boolean; setSubscribersLoading: (v: boolean) => void;
+  analytics: AnalyticsData | null; setAnalytics: (a: AnalyticsData | null) => void; analyticsLoading: boolean; setAnalyticsLoading: (v: boolean) => void;
 }) {
   const fetchArtworks = useCallback(async () => {
     setArtworksLoading(true);
@@ -212,21 +215,53 @@ function AdminDashboard({
     setCommissionsLoading(false);
   }, [setCommissions, setCommissionsLoading]);
 
-  const fetchSubscribers = useCallback(async () => {
+  const fetchAnalytics = useCallback(async () => {
     if (!supabaseConfigured) return;
-    setSubscribersLoading(true);
-    const { data, error } = await supabase.from('newsletter_subscribers').select('*').order('created_at', { ascending: false });
-    if (error) toast.error('Failed to load subscribers.');
-    else setSubscribers((data as NewsletterSubscriber[]) || []);
-    setSubscribersLoading(false);
-  }, [setSubscribers, setSubscribersLoading]);
+    setAnalyticsLoading(true);
+    try {
+      const [artworksRes, ordersRes, commissionsRes] = await Promise.all([
+        supabase.from('artworks').select('availability'),
+        supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        supabase.from('commission_inquiries').select('status'),
+      ]);
+
+      const artworkRows = (artworksRes.data || []) as { availability: string }[];
+      const orderRows = (ordersRes.data || []) as Order[];
+      const commissionRows = (commissionsRes.data || []) as { status: string }[];
+
+      const artworkCounts = {
+        available: artworkRows.filter(a => a.availability === 'available').length,
+        reserved:  artworkRows.filter(a => a.availability === 'reserved').length,
+        sold:      artworkRows.filter(a => a.availability === 'sold').length,
+        total:     artworkRows.length,
+      };
+      const commissionCounts = {
+        pending:  commissionRows.filter(c => c.status === 'pending').length,
+        accepted: commissionRows.filter(c => c.status === 'accepted').length,
+        declined: commissionRows.filter(c => c.status === 'declined').length,
+        total:    commissionRows.length,
+      };
+      const totalRevenue = orderRows.reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+      setAnalytics({
+        totalRevenue,
+        totalOrders: orderRows.length,
+        artworkCounts,
+        commissionCounts,
+        recentOrders: orderRows.slice(0, 5),
+      });
+    } catch {
+      toast.error('Failed to load analytics.');
+    }
+    setAnalyticsLoading(false);
+  }, [setAnalytics, setAnalyticsLoading]);
 
   useEffect(() => {
-    if (tab === 'artworks') fetchArtworks();
-    if (tab === 'orders') fetchOrders();
+    if (tab === 'artworks')   fetchArtworks();
+    if (tab === 'orders')     fetchOrders();
     if (tab === 'commissions') fetchCommissions();
-    if (tab === 'subscribers') fetchSubscribers();
-  }, [tab, fetchArtworks, fetchOrders, fetchCommissions, fetchSubscribers]);
+    if (tab === 'analytics')  fetchAnalytics();
+  }, [tab, fetchArtworks, fetchOrders, fetchCommissions, fetchAnalytics]);
 
   function updateForm(field: string, value: string) {
     setForm({ ...form, [field]: value });
@@ -284,18 +319,35 @@ function AdminDashboard({
   async function updateCommissionStatus(id: string, status: string) {
     if (!supabaseConfigured) return;
     try {
+      const commission = commissions.find(c => c.id === id);
       const { error } = await supabase.from('commission_inquiries').update({ status }).eq('id', id);
       if (error) throw error;
       setCommissions(commissions.map(c => c.id === id ? { ...c, status: status as CommissionInquiry['status'] } : c));
+      if ((status === 'accepted' || status === 'declined') && commission) {
+        await sendEmail(status === 'accepted' ? 'commission_accepted' : 'commission_declined', {
+          name: commission.name,
+          email: commission.email,
+        });
+      }
       toast.success('Status updated.');
     } catch { toast.error('Failed to update status.'); }
+  }
+
+  async function updateOrderFulfillment(id: string, fulfillment_status: string) {
+    if (!supabaseConfigured) return;
+    try {
+      const { error } = await supabase.from('orders').update({ fulfillment_status }).eq('id', id);
+      if (error) throw error;
+      setOrders(orders.map(o => o.id === id ? { ...o, fulfillment_status } : o));
+      toast.success('Order updated.');
+    } catch { toast.error('Failed to update order.'); }
   }
 
   const tabs: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
     { key: 'artworks',    label: 'Artworks',    icon: <Eye size={14} strokeWidth={1.5} /> },
     { key: 'orders',      label: 'Orders',      icon: <Package size={14} strokeWidth={1.5} /> },
     { key: 'commissions', label: 'Commissions', icon: <MessageSquare size={14} strokeWidth={1.5} /> },
-    { key: 'subscribers', label: 'Subscribers', icon: <Users size={14} strokeWidth={1.5} /> },
+    { key: 'analytics',   label: 'Analytics',   icon: <BarChart2 size={14} strokeWidth={1.5} /> },
   ];
 
   return (
@@ -482,13 +534,14 @@ function AdminDashboard({
                           {order.customer_email}
                         </a>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex flex-wrap items-center gap-3 shrink-0">
                         <span className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1 ${statusColors[order.payment_status] || 'bg-gray-100 text-gray-600'}`}>
                           {order.payment_status}
                         </span>
                         <p className="font-sans text-sm font-medium text-art-charcoal">{formatPrice(order.total)}</p>
                       </div>
                     </div>
+
                     <div className="space-y-1.5">
                       {(order.items || []).map((item, i) => (
                         <div key={i} className="flex justify-between font-sans text-xs text-art-muted">
@@ -497,11 +550,28 @@ function AdminDashboard({
                         </div>
                       ))}
                     </div>
-                    <div className="flex flex-wrap justify-between gap-2 pt-2 border-t border-art-pale">
-                      <p className="font-sans text-xs text-art-muted">
-                        {[order.customer_address?.line1, order.customer_address?.city, order.customer_address?.postal_code, order.customer_address?.country].filter(Boolean).join(', ')}
-                      </p>
-                      <p className="font-sans text-xs text-art-light shrink-0">{formatDate(order.created_at)}</p>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-art-pale">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted">Progress</p>
+                        <select
+                          value={order.fulfillment_status || 'processing'}
+                          onChange={e => updateOrderFulfillment(order.id, e.target.value)}
+                          className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1.5 border border-transparent rounded-sm cursor-pointer focus:outline-none appearance-none ${statusColors[order.fulfillment_status || 'processing']}`}
+                        >
+                          <option value="processing">Processing</option>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="preparing">Preparing</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
+                        </select>
+                      </div>
+                      <div className="flex flex-wrap justify-between gap-2">
+                        <p className="font-sans text-xs text-art-muted">
+                          {[order.customer_address?.line1, order.customer_address?.city, order.customer_address?.postal_code, order.customer_address?.country].filter(Boolean).join(', ')}
+                        </p>
+                        <p className="font-sans text-xs text-art-light shrink-0">{formatDate(order.created_at)}</p>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -560,7 +630,6 @@ function AdminDashboard({
                           className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1.5 border border-transparent rounded-sm cursor-pointer focus:outline-none appearance-none ${statusColors[c.status]}`}
                         >
                           <option value="pending">Pending</option>
-                          <option value="reviewed">Reviewed</option>
                           <option value="accepted">Accepted</option>
                           <option value="declined">Declined</option>
                         </select>
@@ -589,50 +658,122 @@ function AdminDashboard({
           </div>
         )}
 
-        {/* ── SUBSCRIBERS TAB ── */}
-        {tab === 'subscribers' && (
+        {/* ── ANALYTICS TAB ── */}
+        {tab === 'analytics' && (
           <div>
             <div className="flex items-center justify-between mb-6 md:mb-8">
-              <h2 className="font-serif text-xl md:text-2xl font-light text-art-charcoal">
-                Subscribers ({subscribers.length})
-              </h2>
-              <div className="flex items-center gap-3">
-                <button onClick={fetchSubscribers} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Refresh">
-                  <RefreshCw size={14} strokeWidth={1.5} />
-                </button>
-                {subscribers.length > 0 && (
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(subscribers.map(s => s.email).join('\n'));
-                      toast.success('Emails copied to clipboard.');
-                    }}
-                    className="font-sans text-[10px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors border-b border-art-light hover:border-art-charcoal pb-0.5"
-                  >
-                    Copy all
-                  </button>
-                )}
-              </div>
+              <h2 className="font-serif text-xl md:text-2xl font-light text-art-charcoal">Analytics</h2>
+              <button onClick={fetchAnalytics} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Refresh">
+                <RefreshCw size={14} strokeWidth={1.5} />
+              </button>
             </div>
 
             {!supabaseConfigured ? (
               <div className="py-20 text-center">
-                <p className="font-serif text-xl font-light text-art-muted">Connect Supabase to view subscribers.</p>
+                <p className="font-serif text-xl font-light text-art-muted">Connect Supabase to view analytics.</p>
               </div>
-            ) : subscribersLoading ? <PageLoader /> : subscribers.length === 0 ? (
-              <div className="py-20 text-center">
-                <p className="font-serif text-xl font-light text-art-muted">No subscribers yet.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-art-pale">
-                {subscribers.map(s => (
-                  <div key={s.id} className="flex items-center justify-between py-3.5 gap-4">
-                    <a href={`mailto:${s.email}`}
-                      className="font-sans text-sm text-art-charcoal hover:text-art-warm transition-colors truncate">
-                      {s.email}
-                    </a>
-                    <p className="font-sans text-xs text-art-light shrink-0">{formatDate(s.created_at)}</p>
+            ) : analyticsLoading ? <PageLoader /> : !analytics ? null : (
+              <div className="space-y-10">
+                {/* Key metrics */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Total Revenue', value: formatPrice(analytics.totalRevenue), icon: <TrendingUp size={16} strokeWidth={1.5} /> },
+                    { label: 'Total Orders', value: String(analytics.totalOrders), icon: <Package size={16} strokeWidth={1.5} /> },
+                    { label: 'Available Works', value: String(analytics.artworkCounts.available), icon: <Eye size={16} strokeWidth={1.5} /> },
+                    { label: 'Pending Commissions', value: String(analytics.commissionCounts.pending), icon: <MessageSquare size={16} strokeWidth={1.5} /> },
+                  ].map(stat => (
+                    <div key={stat.label} className="border border-art-pale p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted">{stat.label}</p>
+                        <span className="text-art-light">{stat.icon}</span>
+                      </div>
+                      <p className="font-serif text-2xl md:text-3xl font-light text-art-charcoal">{stat.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Breakdowns */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Artworks */}
+                  <div className="border border-art-pale p-6 space-y-5">
+                    <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Artworks ({analytics.artworkCounts.total})</p>
+                    <div className="space-y-3">
+                      {[
+                        { label: 'Available', count: analytics.artworkCounts.available, color: 'bg-green-400' },
+                        { label: 'Reserved',  count: analytics.artworkCounts.reserved,  color: 'bg-yellow-400' },
+                        { label: 'Sold',      count: analytics.artworkCounts.sold,      color: 'bg-red-400' },
+                      ].map(({ label, count, color }) => {
+                        const pct = analytics.artworkCounts.total > 0
+                          ? Math.round((count / analytics.artworkCounts.total) * 100)
+                          : 0;
+                        return (
+                          <div key={label} className="space-y-1">
+                            <div className="flex justify-between">
+                              <span className="font-sans text-xs text-art-warm">{label}</span>
+                              <span className="font-sans text-xs text-art-charcoal">{count}</span>
+                            </div>
+                            <div className="h-1 bg-art-pale rounded-full overflow-hidden">
+                              <div className={`h-full ${color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                ))}
+
+                  {/* Commissions */}
+                  <div className="border border-art-pale p-6 space-y-5">
+                    <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Commissions ({analytics.commissionCounts.total})</p>
+                    <div className="space-y-3">
+                      {[
+                        { label: 'Pending',  count: analytics.commissionCounts.pending,  color: 'bg-yellow-400' },
+                        { label: 'Accepted', count: analytics.commissionCounts.accepted, color: 'bg-green-400' },
+                        { label: 'Declined', count: analytics.commissionCounts.declined, color: 'bg-red-400' },
+                      ].map(({ label, count, color }) => {
+                        const pct = analytics.commissionCounts.total > 0
+                          ? Math.round((count / analytics.commissionCounts.total) * 100)
+                          : 0;
+                        return (
+                          <div key={label} className="space-y-1">
+                            <div className="flex justify-between">
+                              <span className="font-sans text-xs text-art-warm">{label}</span>
+                              <span className="font-sans text-xs text-art-charcoal">{count}</span>
+                            </div>
+                            <div className="h-1 bg-art-pale rounded-full overflow-hidden">
+                              <div className={`h-full ${color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent orders */}
+                {analytics.recentOrders.length > 0 && (
+                  <div className="border border-art-pale p-6 space-y-4">
+                    <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Recent Orders</p>
+                    <div className="divide-y divide-art-pale">
+                      {analytics.recentOrders.map(order => (
+                        <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 py-3.5">
+                          <div className="min-w-0">
+                            <p className="font-serif text-sm text-art-charcoal">{order.customer_name}</p>
+                            <p className="font-sans text-xs text-art-muted truncate">
+                              {(order.items || []).map(i => i.artwork_title).join(', ')}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className={`font-sans text-[9px] tracking-widest uppercase px-2 py-0.5 ${statusColors[order.fulfillment_status || 'processing']}`}>
+                              {order.fulfillment_status || 'processing'}
+                            </span>
+                            <span className="font-sans text-sm text-art-charcoal">{formatPrice(order.total)}</span>
+                            <span className="font-sans text-xs text-art-light hidden sm:block">{formatDate(order.created_at)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

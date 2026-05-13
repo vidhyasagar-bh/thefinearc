@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { useCartStore } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
 import { supabase, supabaseConfigured } from '../lib/supabase';
+import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
 import { CheckCircle } from 'lucide-react';
 
@@ -69,10 +70,19 @@ export function CheckoutPage() {
 
     setProcessing(true);
 
+    const emailData = {
+      name: form.name,
+      email: form.email,
+      customer_address: { line1: form.address, city: form.city, postal_code: form.postal_code, country: form.country },
+      items: items.map(({ artwork, quantity }) => ({ artwork_title: artwork.title, quantity, price: artwork.price })),
+      total: cartTotal,
+    };
+
     const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
     if (!stripeKey) {
       // Demo mode — save order then confirm
       await saveOrder();
+      await sendEmail('order_confirmation', emailData);
       await new Promise(r => setTimeout(r, 1200));
       setProcessing(false);
       setCompleted(true);
@@ -83,6 +93,7 @@ export function CheckoutPage() {
     try {
       toast.error('Stripe backend not yet configured. Running in demo mode.');
       await saveOrder();
+      await sendEmail('order_confirmation', emailData);
       await new Promise(r => setTimeout(r, 1200));
       setCompleted(true);
       clearCart();

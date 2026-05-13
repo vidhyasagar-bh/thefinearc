@@ -37,6 +37,7 @@ export interface Order {
   items: OrderItem[];
   total: number;
   payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
+  fulfillment_status: 'processing' | 'confirmed' | 'preparing' | 'shipped' | 'delivered';
   stripe_payment_intent_id?: string;
   created_at: string;
 }
@@ -68,13 +69,7 @@ export interface CommissionInquiry {
   style_preferences?: string;
   color_preferences?: string;
   reference_image_url?: string;
-  status: 'pending' | 'reviewed' | 'accepted' | 'declined';
-  created_at: string;
-}
-
-export interface NewsletterSubscriber {
-  id: string;
-  email: string;
+  status: 'pending' | 'accepted' | 'declined';
   created_at: string;
 }
 

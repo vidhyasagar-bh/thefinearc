@@ -4,6 +4,7 @@ import { FadeIn } from '../components/ui/FadeIn';
 import { Input, Textarea } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { supabase, supabaseConfigured } from '../lib/supabase';
+import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
 
 interface FormData {
@@ -55,6 +56,14 @@ export function CommissionsPage() {
         });
         if (error) throw error;
       }
+      await sendEmail('commission_inquiry', {
+        name: form.name,
+        email: form.email,
+        phone: form.phone || null,
+        project_description: form.project_description,
+        size_preferences: form.size_preferences || null,
+        color_preferences: form.color_preferences || null,
+      });
       setSubmitted(true);
     } catch {
       toast.error('Something went wrong. Please try again or email us directly.');

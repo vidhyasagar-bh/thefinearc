@@ -37,6 +37,7 @@ create table if not exists public.orders (
   items jsonb not null default '[]',
   total numeric(10,2) not null,
   payment_status text not null default 'pending' check (payment_status in ('pending','paid','failed','refunded')),
+  fulfillment_status text not null default 'processing' check (fulfillment_status in ('processing','confirmed','preparing','shipped','delivered')),
   stripe_payment_intent_id text,
   created_at timestamptz default now() not null
 );
@@ -45,6 +46,9 @@ alter table public.orders enable row level security;
 
 create policy "Authenticated can view orders" on public.orders
   for select using (auth.role() = 'authenticated');
+
+create policy "Authenticated can update orders" on public.orders
+  for update using (auth.role() = 'authenticated');
 
 create policy "Public can insert orders" on public.orders
   for insert with check (true);
@@ -61,7 +65,7 @@ create table if not exists public.commission_inquiries (
   style_preferences text,
   color_preferences text,
   reference_image_url text,
-  status text not null default 'pending' check (status in ('pending','reviewed','accepted','declined')),
+  status text not null default 'pending' check (status in ('pending','accepted','declined')),
   created_at timestamptz default now() not null
 );
 
@@ -73,20 +77,8 @@ create policy "Public can insert commission inquiries" on public.commission_inqu
 create policy "Authenticated can view commission inquiries" on public.commission_inquiries
   for select using (auth.role() = 'authenticated');
 
--- Newsletter subscribers
-create table if not exists public.newsletter_subscribers (
-  id uuid default gen_random_uuid() primary key,
-  email text not null unique,
-  created_at timestamptz default now() not null
-);
-
-alter table public.newsletter_subscribers enable row level security;
-
-create policy "Public can subscribe to newsletter" on public.newsletter_subscribers
-  for insert with check (true);
-
-create policy "Authenticated can view subscribers" on public.newsletter_subscribers
-  for select using (auth.role() = 'authenticated');
+create policy "Authenticated can update commission inquiries" on public.commission_inquiries
+  for update using (auth.role() = 'authenticated');
 
 -- Contact messages
 create table if not exists public.contact_messages (
