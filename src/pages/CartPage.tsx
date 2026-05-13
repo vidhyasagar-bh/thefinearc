@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { FadeIn } from '../components/ui/FadeIn';
@@ -8,7 +8,7 @@ import { useCartStore } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
 
 export function CartPage() {
-  const { items, removeItem, updateQuantity, total } = useCartStore();
+  const { items, removeItem, total } = useCartStore();
   const cartTotal = total();
 
   return (
@@ -40,9 +40,9 @@ export function CartPage() {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-16">
               {/* Items */}
-              <div className="lg:col-span-2 space-y-0 divide-y divide-art-pale">
+              <div className="lg:col-span-2 divide-y divide-art-pale">
                 <AnimatePresence initial={false}>
-                  {items.map(({ artwork, quantity }) => (
+                  {items.map(({ artwork }) => (
                     <motion.div
                       key={artwork.id}
                       layout
@@ -50,12 +50,12 @@ export function CartPage() {
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="py-7"
+                      className="py-6 md:py-7"
                     >
-                      <div className="flex gap-6">
+                      <div className="flex gap-5 md:gap-6">
                         {/* Image */}
                         <Link to={`/artwork/${artwork.id}`} className="shrink-0">
-                          <div className="w-24 h-24 md:w-32 md:h-32 overflow-hidden bg-cream-100">
+                          <div className="w-20 h-20 md:w-28 md:h-28 overflow-hidden bg-cream-100">
                             <img
                               src={artwork.images[0]}
                               alt={artwork.title}
@@ -65,50 +65,30 @@ export function CartPage() {
                         </Link>
 
                         {/* Details */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start">
-                            <div>
+                        <div className="flex-1 min-w-0 flex flex-col justify-between">
+                          <div className="flex justify-between items-start gap-4">
+                            <div className="min-w-0">
                               <Link to={`/artwork/${artwork.id}`}>
-                                <h3 className="font-serif text-xl font-light text-art-charcoal hover:text-art-warm transition-colors">
+                                <h3 className="font-serif text-lg md:text-xl font-light text-art-charcoal hover:text-art-warm transition-colors leading-snug">
                                   {artwork.title}
                                 </h3>
                               </Link>
-                              <p className="font-sans text-xs text-art-muted mt-1">
+                              <p className="font-sans text-xs text-art-muted mt-1 truncate">
                                 {artwork.materials} · {artwork.dimensions}
                               </p>
                             </div>
                             <button
                               onClick={() => removeItem(artwork.id)}
-                              className="text-art-light hover:text-art-muted transition-colors ml-4 shrink-0"
+                              aria-label="Remove"
+                              className="text-art-light hover:text-art-muted transition-colors shrink-0 p-1 -mr-1"
                             >
-                              <X size={16} strokeWidth={1.5} />
+                              <X size={15} strokeWidth={1.5} />
                             </button>
                           </div>
 
-                          <div className="flex items-center justify-between mt-5">
-                            {/* Quantity */}
-                            <div className="flex items-center gap-4 border border-art-pale px-3 py-2">
-                              <button
-                                onClick={() => updateQuantity(artwork.id, quantity - 1)}
-                                className="text-art-muted hover:text-art-charcoal transition-colors"
-                              >
-                                <Minus size={12} strokeWidth={1.5} />
-                              </button>
-                              <span className="font-sans text-sm text-art-charcoal w-4 text-center">
-                                {quantity}
-                              </span>
-                              <button
-                                onClick={() => updateQuantity(artwork.id, quantity + 1)}
-                                className="text-art-muted hover:text-art-charcoal transition-colors"
-                              >
-                                <Plus size={12} strokeWidth={1.5} />
-                              </button>
-                            </div>
-
-                            <p className="font-sans text-base text-art-charcoal">
-                              {formatPrice(artwork.price * quantity)}
-                            </p>
-                          </div>
+                          <p className="font-sans text-base text-art-charcoal mt-3">
+                            {formatPrice(artwork.price)}
+                          </p>
                         </div>
                       </div>
                     </motion.div>
@@ -118,18 +98,18 @@ export function CartPage() {
 
               {/* Summary */}
               <FadeIn delay={0.2}>
-                <div className="lg:sticky lg:top-32 space-y-6 bg-cream-50 p-8">
+                <div className="lg:sticky lg:top-32 space-y-5 bg-cream-50 p-6 md:p-8">
                   <h2 className="font-serif text-xl font-light text-art-charcoal">
                     Order Summary
                   </h2>
                   <div className="space-y-3">
-                    {items.map(({ artwork, quantity }) => (
-                      <div key={artwork.id} className="flex justify-between text-sm">
-                        <span className="font-sans text-art-muted truncate mr-4">
-                          {artwork.title} × {quantity}
+                    {items.map(({ artwork }) => (
+                      <div key={artwork.id} className="flex justify-between text-sm gap-4">
+                        <span className="font-sans text-art-muted truncate">
+                          {artwork.title}
                         </span>
                         <span className="font-sans text-art-charcoal shrink-0">
-                          {formatPrice(artwork.price * quantity)}
+                          {formatPrice(artwork.price)}
                         </span>
                       </div>
                     ))}
@@ -142,7 +122,7 @@ export function CartPage() {
                       {formatPrice(cartTotal)}
                     </span>
                   </div>
-                  <p className="font-sans text-[11px] text-art-muted">
+                  <p className="font-sans text-[11px] text-art-muted leading-relaxed">
                     Shipping calculated at checkout. International shipping available.
                   </p>
                   <Link to="/checkout" className="block">

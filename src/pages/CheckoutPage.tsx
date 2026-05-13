@@ -6,6 +6,7 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { useCartStore } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
+import { supabase, supabaseConfigured } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { CheckCircle } from 'lucide-react';
 
@@ -14,7 +15,6 @@ interface CheckoutForm {
   name: string;
   address: string;
   city: string;
-  state: string;
   postal_code: string;
   country: string;
 }
@@ -25,13 +25,39 @@ export function CheckoutPage() {
   const cartTotal = total();
 
   const [form, setForm] = useState<CheckoutForm>({
-    email: '', name: '', address: '', city: '', state: '', postal_code: '', country: 'GB',
+    email: '', name: '', address: '', city: '', postal_code: '', country: 'GB',
   });
   const [processing, setProcessing] = useState(false);
   const [completed, setCompleted] = useState(false);
 
   function update(field: keyof CheckoutForm, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
+  }
+
+  async function saveOrder() {
+    if (!supabaseConfigured) return;
+    try {
+      await supabase.from('orders').insert({
+        customer_name: form.name,
+        customer_email: form.email,
+        customer_address: {
+          line1: form.address,
+          city: form.city,
+          postal_code: form.postal_code,
+          country: form.country,
+        },
+        items: items.map(({ artwork, quantity }) => ({
+          artwork_id: artwork.id,
+          artwork_title: artwork.title,
+          quantity,
+          price: artwork.price,
+        })),
+        total: cartTotal,
+        payment_status: 'pending',
+      });
+    } catch {
+      // Non-fatal — order still completes in demo mode
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -41,22 +67,27 @@ export function CheckoutPage() {
       return;
     }
 
+    setProcessing(true);
+
     const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
     if (!stripeKey) {
-      // Demo mode
-      setProcessing(true);
-      await new Promise(r => setTimeout(r, 1500));
+      // Demo mode — save order then confirm
+      await saveOrder();
+      await new Promise(r => setTimeout(r, 1200));
       setProcessing(false);
       setCompleted(true);
       clearCart();
       return;
     }
 
-    setProcessing(true);
     try {
-      toast.error('Please configure your Stripe backend to process payments.');
+      toast.error('Stripe backend not yet configured. Running in demo mode.');
+      await saveOrder();
+      await new Promise(r => setTimeout(r, 1200));
+      setCompleted(true);
+      clearCart();
     } catch {
-      toast.error('Payment failed. Please try again.');
+      toast.error('Something went wrong. Please try again.');
     } finally {
       setProcessing(false);
     }
@@ -86,7 +117,7 @@ export function CheckoutPage() {
                 Order confirmed.
               </h1>
               <p className="font-sans text-sm text-art-muted leading-relaxed">
-                Thank you for collecting. A confirmation has been sent to {form.email}. Your work will be carefully packed and dispatched within 5–7 working days.
+                Thank you for collecting. We will be in touch at {form.email} to arrange delivery. Your work will be carefully packed and dispatched within 5–7 working days.
               </p>
               <div className="w-8 h-px bg-art-light mx-auto" />
               <Link to="/gallery">
@@ -112,9 +143,9 @@ export function CheckoutPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-16">
             {/* Form */}
             <div className="lg:col-span-2 order-2 lg:order-1">
-              <form onSubmit={handleSubmit} className="space-y-12">
+              <form onSubmit={handleSubmit} className="space-y-10 md:space-y-12">
                 <FadeIn>
-                  <div className="space-y-7">
+                  <div className="space-y-6">
                     <h2 className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
                       Contact
                     </h2>
@@ -129,7 +160,7 @@ export function CheckoutPage() {
                 </FadeIn>
 
                 <FadeIn delay={0.1}>
-                  <div className="space-y-7">
+                  <div className="space-y-6">
                     <h2 className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
                       Shipping Address
                     </h2>
@@ -145,7 +176,7 @@ export function CheckoutPage() {
                       onChange={e => update('address', e.target.value)}
                       required
                     />
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-5">
                       <Input
                         label="City *"
                         value={form.city}
@@ -169,7 +200,7 @@ export function CheckoutPage() {
                 </FadeIn>
 
                 <FadeIn delay={0.15}>
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     <h2 className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
                       Payment
                     </h2>
@@ -177,7 +208,7 @@ export function CheckoutPage() {
                       <p className="font-sans text-sm text-art-muted">
                         {import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
                           ? 'Secure payment via Stripe'
-                          : '⚠ Demo mode — no real payment will be processed'}
+                          : 'Demo mode — no real payment will be processed'}
                       </p>
                     </div>
                   </div>
@@ -196,23 +227,23 @@ export function CheckoutPage() {
 
             {/* Summary */}
             <FadeIn delay={0.2}>
-              <div className="space-y-6 bg-cream-50 p-7 lg:sticky lg:top-32 self-start order-1 lg:order-2">
+              <div className="space-y-5 bg-cream-50 p-6 md:p-7 lg:sticky lg:top-32 self-start order-1 lg:order-2">
                 <h2 className="font-serif text-lg font-light text-art-charcoal">Your Selection</h2>
-                <div className="space-y-5">
-                  {items.map(({ artwork, quantity }) => (
+                <div className="space-y-4">
+                  {items.map(({ artwork }) => (
                     <div key={artwork.id} className="flex gap-4">
-                      <div className="w-16 h-16 shrink-0 overflow-hidden bg-cream-100">
+                      <div className="w-14 h-14 shrink-0 overflow-hidden bg-cream-100">
                         <img src={artwork.images[0]} alt={artwork.title} className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-serif text-sm font-light text-art-charcoal truncate">{artwork.title}</p>
-                        <p className="font-sans text-xs text-art-muted">× {quantity}</p>
+                        <p className="font-serif text-sm font-light text-art-charcoal leading-snug">{artwork.title}</p>
+                        <p className="font-sans text-xs text-art-muted mt-0.5">{artwork.dimensions}</p>
                       </div>
-                      <p className="font-sans text-sm text-art-charcoal shrink-0">{formatPrice(artwork.price * quantity)}</p>
+                      <p className="font-sans text-sm text-art-charcoal shrink-0">{formatPrice(artwork.price)}</p>
                     </div>
                   ))}
                 </div>
-                <div className="border-t border-art-pale pt-5 flex justify-between">
+                <div className="border-t border-art-pale pt-4 flex justify-between">
                   <span className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Total</span>
                   <span className="font-sans text-base text-art-charcoal">{formatPrice(cartTotal)}</span>
                 </div>

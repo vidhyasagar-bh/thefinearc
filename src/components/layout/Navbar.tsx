@@ -26,6 +26,11 @@ export function Navbar() {
   }, []);
 
   useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
+  useEffect(() => {
     setMobileOpen(false);
   }, [location]);
 

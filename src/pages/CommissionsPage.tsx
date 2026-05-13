@@ -47,7 +47,7 @@ export function CommissionsPage() {
           email: form.email,
           phone: form.phone || null,
           project_description: form.project_description,
-          budget: null,
+          budget: '',
           size_preferences: form.size_preferences || null,
           style_preferences: null,
           color_preferences: form.color_preferences || null,

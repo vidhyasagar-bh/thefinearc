@@ -19,16 +19,8 @@ export const useCartStore = create<CartStore>()(
 
       addItem: (artwork: Artwork) => {
         set((state) => {
-          const existing = state.items.find(i => i.artwork.id === artwork.id);
-          if (existing) {
-            return {
-              items: state.items.map(i =>
-                i.artwork.id === artwork.id
-                  ? { ...i, quantity: i.quantity + 1 }
-                  : i
-              ),
-            };
-          }
+          // Original artworks are unique — cap at 1
+          if (state.items.find(i => i.artwork.id === artwork.id)) return state;
           return { items: [...state.items, { artwork, quantity: 1 }] };
         });
       },
