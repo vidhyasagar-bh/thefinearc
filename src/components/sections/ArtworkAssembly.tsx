@@ -58,33 +58,49 @@ function ArtworkInfo({ artwork, progress }: { artwork: Artwork; progress: Motion
   );
 }
 
-function LayeredPainting({ imageUrl, progress }: { imageUrl: string; progress: MotionValue<number> }) {
-  // Layer 2 fades in at progress 0.22–0.52
-  const layer2Opacity = useTransform(progress, [0.22, 0.52], [0, 1]);
-  // Layer 3 fades in at progress 0.50–0.80
-  const layer3Opacity = useTransform(progress, [0.50, 0.80], [0, 1]);
+// Each copy is its own component so hooks aren't called in a loop
+function PaintLayer({ startAt, endAt, imageUrl, progress }: {
+  startAt: number; endAt: number;
+  imageUrl: string; progress: MotionValue<number>;
+}) {
+  const opacity = useTransform(progress, [startAt, endAt], [0, 1]);
+  return (
+    <motion.div
+      style={{
+        opacity,
+        position: 'absolute', inset: 0,
+        backgroundImage:    `url(${imageUrl})`,
+        backgroundSize:     'cover',
+        backgroundPosition: 'center',
+      }}
+    />
+  );
+}
 
+function LayeredPainting({ imageUrl, progress }: { imageUrl: string; progress: MotionValue<number> }) {
+  // 4 copies of the same image, each at ~0.27 max opacity
+  // Stacked they sum to ~1.0 — each new copy genuinely adds richness
+  // Layer 1 is always visible (the thin initial wash)
+  // Layers 2-4 fade in one by one as you scroll
+  const LAYER_OPACITY = 0.27;
   const base: React.CSSProperties = {
-    position: 'absolute',
-    inset: 0,
+    position: 'absolute', inset: 0,
     backgroundImage:    `url(${imageUrl})`,
     backgroundSize:     'cover',
     backgroundPosition: 'center',
+    opacity: LAYER_OPACITY,
   };
 
   return (
-    <div
-      className="relative"
-      style={{ width: 'min(40vw, 260px)', height: 'min(53vw, 347px)' }}
-    >
-      {/* Layer 1 — base: always visible, desaturated + dark (underpainting) */}
-      <div style={{ ...base, filter: 'grayscale(100%) brightness(0.55)' }} />
-
-      {/* Layer 2 — builds colour and value */}
-      <motion.div style={{ ...base, filter: 'grayscale(25%) brightness(0.85)', opacity: layer2Opacity }} />
-
-      {/* Layer 3 — final full-colour layer */}
-      <motion.div style={{ ...base, opacity: layer3Opacity }} />
+    <div className="relative" style={{ width: 'min(40vw, 260px)', height: 'min(53vw, 347px)' }}>
+      {/* Layer 1 — always visible, thin wash */}
+      <div style={base} />
+      {/* Layer 2 — adds density */}
+      <PaintLayer startAt={0.20} endAt={0.38} imageUrl={imageUrl} progress={progress} />
+      {/* Layer 3 — richer still */}
+      <PaintLayer startAt={0.45} endAt={0.63} imageUrl={imageUrl} progress={progress} />
+      {/* Layer 4 — full painting */}
+      <PaintLayer startAt={0.68} endAt={0.82} imageUrl={imageUrl} progress={progress} />
     </div>
   );
 }
