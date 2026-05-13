@@ -23,7 +23,14 @@ export function useArtworks(category?: ArtworkCategory) {
       if (category) query = query.eq('category', category);
       const { data, error: err } = await query;
       if (err) setError(err.message);
-      else setArtworks((data as Artwork[]) || []);
+      else {
+        // Fall back to mock data while Supabase is empty
+        const results = (data as Artwork[]) || [];
+        const filtered = category
+          ? mockArtworks.filter(a => a.category === category)
+          : mockArtworks;
+        setArtworks(results.length > 0 ? results : filtered);
+      }
       setLoading(false);
     }
     fetch();
@@ -35,7 +42,7 @@ export function useArtworks(category?: ArtworkCategory) {
 export function useArtwork(id: string) {
   const [artwork, setArtwork] = useState<Artwork | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetch() {
@@ -51,8 +58,12 @@ export function useArtwork(id: string) {
         .select('*')
         .eq('id', id)
         .single();
-      if (err) setError(err.message);
-      else setArtwork(data as Artwork);
+      if (err) {
+        const found = mockArtworks.find(a => a.id === id) || null;
+        setArtwork(found);
+      } else {
+        setArtwork(data as Artwork);
+      }
       setLoading(false);
     }
     fetch();

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, Edit2, Trash2, Eye, Package, MessageSquare, Users, RefreshCw, LogOut, Lock } from 'lucide-react';
 import { Button } from '../components/ui/Button';
@@ -123,6 +124,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
 export function AdminPage() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem('admin_auth') === '1');
   const [tab, setTab] = useState<AdminTab>('artworks');
+  const navigate = useNavigate();
 
   // — Artworks —
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -149,7 +151,7 @@ export function AdminPage() {
 
   function signOut() {
     sessionStorage.removeItem('admin_auth');
-    setAuthed(false);
+    navigate('/');
   }
 
   return <AdminDashboard tab={tab} setTab={setTab} signOut={signOut}
