@@ -54,7 +54,7 @@ const emptyArtwork: ArtworkFormState = {
   year: new Date().getFullYear().toString(),
 };
 
-const statusColors: Record<string, string> = {
+const statusBadge: Record<string, string> = {
   pending:    'bg-yellow-50 text-yellow-700',
   accepted:   'bg-green-50 text-green-700',
   declined:   'bg-red-50 text-red-600',
@@ -70,6 +70,27 @@ const statusColors: Record<string, string> = {
   shipped:    'bg-teal-50 text-teal-700',
   delivered:  'bg-green-50 text-green-700',
 };
+
+// Native select styled for mobile — no appearance-none, so mobile browsers show arrow
+function StatusSelect({ value, onChange, options, className = '' }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  className?: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      style={{ touchAction: 'manipulation' }}
+      className={`font-sans text-[11px] tracking-wide uppercase py-2 px-3 border rounded-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-art-charcoal bg-white min-h-[40px] ${className}`}
+    >
+      {options.map(o => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
+  );
+}
 
 // ── Login Gate ─────────────────────────────────────────────────────────────────
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
@@ -89,7 +110,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-art-white flex items-center justify-center px-6">
+    <div className="min-h-dvh bg-art-white flex items-center justify-center px-6">
       <div className="w-full max-w-sm space-y-10">
         <div className="text-center space-y-3">
           <div className="flex justify-center">
@@ -98,7 +119,6 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
           <h1 className="font-serif text-3xl font-light text-art-charcoal">Admin Access</h1>
           <p className="font-sans text-sm text-art-muted">The Fine Arc</p>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-1">
             <Input
@@ -109,15 +129,10 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
               autoFocus
               required
             />
-            {error && (
-              <p className="font-sans text-xs text-red-500 pt-1">Incorrect password.</p>
-            )}
+            {error && <p className="font-sans text-xs text-red-500 pt-1">Incorrect password.</p>}
           </div>
-          <Button type="submit" size="lg" className="w-full">
-            Enter Dashboard
-          </Button>
+          <Button type="submit" size="lg" className="w-full">Enter Dashboard</Button>
         </form>
-
         <p className="font-sans text-center text-[10px] text-art-light">
           Set <code className="text-art-muted">VITE_ADMIN_PASSWORD</code> in your environment to change the password.
         </p>
@@ -147,9 +162,7 @@ export function AdminPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
-  if (!authed) {
-    return <AdminLogin onSuccess={() => setAuthed(true)} />;
-  }
+  if (!authed) return <AdminLogin onSuccess={() => setAuthed(true)} />;
 
   function signOut() {
     sessionStorage.removeItem('admin_auth');
@@ -186,11 +199,7 @@ function AdminDashboard({
 }) {
   const fetchArtworks = useCallback(async () => {
     setArtworksLoading(true);
-    if (!supabaseConfigured) {
-      setArtworks(mockArtworks);
-      setArtworksLoading(false);
-      return;
-    }
+    if (!supabaseConfigured) { setArtworks(mockArtworks); setArtworksLoading(false); return; }
     const { data, error } = await supabase.from('artworks').select('*').order('created_at', { ascending: false });
     if (error) toast.error('Failed to load artworks.');
     else setArtworks((data as Artwork[]) || []);
@@ -224,43 +233,35 @@ function AdminDashboard({
         supabase.from('orders').select('*').order('created_at', { ascending: false }),
         supabase.from('commission_inquiries').select('status'),
       ]);
-
       const artworkRows = (artworksRes.data || []) as { availability: string }[];
-      const orderRows = (ordersRes.data || []) as Order[];
-      const commissionRows = (commissionsRes.data || []) as { status: string }[];
-
-      const artworkCounts = {
-        available: artworkRows.filter(a => a.availability === 'available').length,
-        reserved:  artworkRows.filter(a => a.availability === 'reserved').length,
-        sold:      artworkRows.filter(a => a.availability === 'sold').length,
-        total:     artworkRows.length,
-      };
-      const commissionCounts = {
-        pending:  commissionRows.filter(c => c.status === 'pending').length,
-        accepted: commissionRows.filter(c => c.status === 'accepted').length,
-        declined: commissionRows.filter(c => c.status === 'declined').length,
-        total:    commissionRows.length,
-      };
-      const totalRevenue = orderRows.reduce((sum, o) => sum + Number(o.total || 0), 0);
-
+      const orderRows   = (ordersRes.data   || []) as Order[];
+      const commRows    = (commissionsRes.data || []) as { status: string }[];
       setAnalytics({
-        totalRevenue,
-        totalOrders: orderRows.length,
-        artworkCounts,
-        commissionCounts,
+        totalRevenue: orderRows.reduce((s, o) => s + Number(o.total || 0), 0),
+        totalOrders:  orderRows.length,
+        artworkCounts: {
+          available: artworkRows.filter(a => a.availability === 'available').length,
+          reserved:  artworkRows.filter(a => a.availability === 'reserved').length,
+          sold:      artworkRows.filter(a => a.availability === 'sold').length,
+          total:     artworkRows.length,
+        },
+        commissionCounts: {
+          pending:  commRows.filter(c => c.status === 'pending').length,
+          accepted: commRows.filter(c => c.status === 'accepted').length,
+          declined: commRows.filter(c => c.status === 'declined').length,
+          total:    commRows.length,
+        },
         recentOrders: orderRows.slice(0, 5),
       });
-    } catch {
-      toast.error('Failed to load analytics.');
-    }
+    } catch { toast.error('Failed to load analytics.'); }
     setAnalyticsLoading(false);
   }, [setAnalytics, setAnalyticsLoading]);
 
   useEffect(() => {
-    if (tab === 'artworks')   fetchArtworks();
-    if (tab === 'orders')     fetchOrders();
+    if (tab === 'artworks')    fetchArtworks();
+    if (tab === 'orders')      fetchOrders();
     if (tab === 'commissions') fetchCommissions();
-    if (tab === 'analytics')  fetchAnalytics();
+    if (tab === 'analytics')   fetchAnalytics();
   }, [tab, fetchArtworks, fetchOrders, fetchCommissions, fetchAnalytics]);
 
   function updateForm(field: string, value: string) {
@@ -284,9 +285,7 @@ function AdminDashboard({
         if (error) throw error;
       }
       toast.success(editingId ? 'Artwork updated.' : 'Artwork added.');
-      setShowForm(false);
-      setEditingId(null);
-      setForm(emptyArtwork);
+      setShowForm(false); setEditingId(null); setForm(emptyArtwork);
       fetchArtworks();
     } catch { toast.error('Failed to save.'); }
   }
@@ -311,8 +310,7 @@ function AdminDashboard({
       availability: artwork.availability, framing: artwork.framing || '',
       year: artwork.year?.toString() || '',
     });
-    setEditingId(artwork.id);
-    setShowForm(true);
+    setEditingId(artwork.id); setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -325,8 +323,7 @@ function AdminDashboard({
       setCommissions(commissions.map(c => c.id === id ? { ...c, status: status as CommissionInquiry['status'] } : c));
       if ((status === 'accepted' || status === 'declined') && commission) {
         await sendEmail(status === 'accepted' ? 'commission_accepted' : 'commission_declined', {
-          name: commission.name,
-          email: commission.email,
+          name: commission.name, email: commission.email,
         });
       }
       toast.success('Status updated.');
@@ -351,35 +348,40 @@ function AdminDashboard({
   ];
 
   return (
-    <div className="min-h-screen bg-art-white">
+    // overflow-x-hidden on both the outer div and the page to block horizontal scroll on all mobile browsers
+    <div className="min-h-dvh bg-art-white" style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
+
       {/* Top bar */}
-      <div className="border-b border-art-pale sticky top-0 bg-art-white z-40">
+      <div className="border-b border-art-pale sticky top-0 bg-art-white z-40 w-full">
         <div className="max-w-7xl mx-auto px-4 md:px-10 flex items-center justify-between h-14 md:h-16">
-          <p className="font-serif text-base md:text-xl font-light text-art-charcoal">Fine Arc · Admin</p>
-          <div className="flex items-center gap-4 md:gap-6">
-            <a href="/" className="font-sans text-[10px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors">
+          <p className="font-serif text-sm md:text-xl font-light text-art-charcoal whitespace-nowrap">Fine Arc · Admin</p>
+          <div className="flex items-center gap-3 md:gap-6 ml-4">
+            <a href="/" className="font-sans text-[10px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors whitespace-nowrap">
               View Site
             </a>
             <button
               onClick={signOut}
+              style={{ touchAction: 'manipulation', minHeight: 44 }}
               className="flex items-center gap-1.5 font-sans text-[10px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors"
               aria-label="Sign out"
             >
-              <LogOut size={12} strokeWidth={1.5} />
+              <LogOut size={14} strokeWidth={1.5} />
               <span className="hidden sm:inline">Sign out</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-10 py-6 md:py-10">
-        {/* Tabs */}
-        <div className="flex mb-8 md:mb-10 border-b border-art-pale overflow-x-auto scrollbar-hide">
+      <div className="max-w-7xl mx-auto px-4 md:px-10 py-6 md:py-10 w-full">
+
+        {/* Tabs — scrollable on mobile, no wrapping */}
+        <div className="flex mb-8 border-b border-art-pale overflow-x-auto scrollbar-hide w-full">
           {tabs.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 font-sans text-[10px] tracking-widest uppercase px-4 py-3 border-b-2 -mb-px transition-all duration-300 flex-none whitespace-nowrap ${
+              style={{ touchAction: 'manipulation', minHeight: 44 }}
+              className={`flex items-center gap-2 font-sans text-[10px] tracking-widest uppercase px-4 py-3 border-b-2 -mb-px transition-colors flex-none whitespace-nowrap ${
                 tab === t.key
                   ? 'border-art-charcoal text-art-charcoal'
                   : 'border-transparent text-art-muted hover:text-art-charcoal'
@@ -394,18 +396,19 @@ function AdminDashboard({
         {/* ── ARTWORKS TAB ── */}
         {tab === 'artworks' && (
           <div>
-            <div className="flex items-center justify-between mb-6 md:mb-8">
+            <div className="flex items-center justify-between mb-6 gap-4">
               <h2 className="font-serif text-xl md:text-2xl font-light text-art-charcoal">
                 Artworks ({artworks.length})
               </h2>
-              <div className="flex items-center gap-3">
-                <button onClick={fetchArtworks} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Refresh">
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={fetchArtworks} style={{ minHeight: 44, minWidth: 44, touchAction: 'manipulation' }}
+                  className="text-art-muted hover:text-art-charcoal transition-colors flex items-center justify-center" aria-label="Refresh">
                   <RefreshCw size={14} strokeWidth={1.5} />
                 </button>
                 <Button size="sm" onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyArtwork); }}>
                   <Plus size={14} strokeWidth={1.5} />
-                  <span className="hidden sm:inline">Add Artwork</span>
-                  <span className="sm:hidden">Add</span>
+                  <span className="hidden sm:inline ml-1">Add Artwork</span>
+                  <span className="sm:hidden ml-1">Add</span>
                 </Button>
               </div>
             </div>
@@ -414,12 +417,12 @@ function AdminDashboard({
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-8 p-5 md:p-8 border border-art-pale bg-cream-50 space-y-6"
+                className="mb-8 p-4 md:p-8 border border-art-pale bg-cream-50 space-y-6"
               >
                 <h3 className="font-serif text-xl font-light text-art-charcoal">
                   {editingId ? 'Edit Artwork' : 'New Artwork'}
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <Input label="Title *" value={form.title} onChange={e => updateForm('title', e.target.value)} />
                   <Input label="Price *" type="number" value={form.price} onChange={e => updateForm('price', e.target.value)} placeholder="2400" />
                   <Input label="Dimensions" value={form.dimensions} onChange={e => updateForm('dimensions', e.target.value)} placeholder="80 × 100 cm" />
@@ -428,6 +431,7 @@ function AdminDashboard({
                   <div>
                     <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Category</label>
                     <select value={form.category} onChange={e => updateForm('category', e.target.value)}
+                      style={{ minHeight: 44 }}
                       className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-sm py-3 focus:outline-none focus:border-art-charcoal">
                       {['painting','drawing','print','photography','mixed-media','sculpture'].map(c => (
                         <option key={c} value={c}>{c}</option>
@@ -437,6 +441,7 @@ function AdminDashboard({
                   <div>
                     <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Availability</label>
                     <select value={form.availability} onChange={e => updateForm('availability', e.target.value)}
+                      style={{ minHeight: 44 }}
                       className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-sm py-3 focus:outline-none focus:border-art-charcoal">
                       <option value="available">Available</option>
                       <option value="sold">Sold</option>
@@ -466,30 +471,33 @@ function AdminDashboard({
             {artworksLoading ? <PageLoader /> : (
               <div className="divide-y divide-art-pale">
                 {artworks.map(artwork => (
-                  <div key={artwork.id} className="flex items-center gap-4 py-4">
-                    <div className="w-12 h-12 md:w-14 md:h-14 shrink-0 overflow-hidden bg-cream-100">
+                  <div key={artwork.id} className="flex items-center gap-3 py-4 w-full overflow-hidden">
+                    {/* Thumbnail */}
+                    <div className="w-12 h-12 shrink-0 overflow-hidden bg-cream-100">
                       <img src={artwork.images[0]} alt={artwork.title} className="w-full h-full object-cover" />
                     </div>
+                    {/* Info — min-w-0 allows text truncation inside a flex child */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-serif text-sm md:text-base text-art-charcoal truncate">{artwork.title}</p>
+                      <p className="font-serif text-sm text-art-charcoal truncate">{artwork.title}</p>
                       <p className="font-sans text-xs text-art-muted truncate">{artwork.category} · {artwork.dimensions}</p>
-                      <div className="flex items-center gap-2 mt-1 md:hidden">
+                      <div className="flex items-center gap-2 mt-1">
                         <p className="font-sans text-xs text-art-charcoal">{formatPrice(artwork.price)}</p>
-                        <span className={`font-sans text-[9px] tracking-widest uppercase px-2 py-0.5 ${statusColors[artwork.availability]}`}>
+                        <span className={`font-sans text-[9px] tracking-widest uppercase px-2 py-0.5 shrink-0 ${statusBadge[artwork.availability]}`}>
                           {artwork.availability}
                         </span>
                       </div>
                     </div>
-                    <p className="font-sans text-sm text-art-charcoal hidden md:block shrink-0">{formatPrice(artwork.price)}</p>
-                    <span className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1 hidden md:block shrink-0 ${statusColors[artwork.availability]}`}>
-                      {artwork.availability}
-                    </span>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => startEdit(artwork)} className="text-art-muted hover:text-art-charcoal transition-colors p-2" aria-label="Edit">
-                        <Edit2 size={14} strokeWidth={1.5} />
+                    {/* Actions */}
+                    <div className="flex items-center shrink-0">
+                      <button onClick={() => startEdit(artwork)}
+                        style={{ minHeight: 44, minWidth: 44, touchAction: 'manipulation' }}
+                        className="text-art-muted hover:text-art-charcoal transition-colors flex items-center justify-center" aria-label="Edit">
+                        <Edit2 size={15} strokeWidth={1.5} />
                       </button>
-                      <button onClick={() => handleDelete(artwork.id)} className="text-art-muted hover:text-red-500 transition-colors p-2" aria-label="Delete">
-                        <Trash2 size={14} strokeWidth={1.5} />
+                      <button onClick={() => handleDelete(artwork.id)}
+                        style={{ minHeight: 44, minWidth: 44, touchAction: 'manipulation' }}
+                        className="text-art-muted hover:text-red-500 transition-colors flex items-center justify-center" aria-label="Delete">
+                        <Trash2 size={15} strokeWidth={1.5} />
                       </button>
                     </div>
                   </div>
@@ -505,11 +513,12 @@ function AdminDashboard({
         {/* ── ORDERS TAB ── */}
         {tab === 'orders' && (
           <div>
-            <div className="flex items-center justify-between mb-6 md:mb-8">
+            <div className="flex items-center justify-between mb-6 gap-4">
               <h2 className="font-serif text-xl md:text-2xl font-light text-art-charcoal">
                 Orders ({orders.length})
               </h2>
-              <button onClick={fetchOrders} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Refresh">
+              <button onClick={fetchOrders} style={{ minHeight: 44, minWidth: 44, touchAction: 'manipulation' }}
+                className="text-art-muted hover:text-art-charcoal transition-colors flex items-center justify-center shrink-0" aria-label="Refresh">
                 <RefreshCw size={14} strokeWidth={1.5} />
               </button>
             </div>
@@ -525,49 +534,53 @@ function AdminDashboard({
             ) : (
               <div className="space-y-4">
                 {orders.map(order => (
-                  <div key={order.id} className="border border-art-pale p-5 md:p-6 space-y-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
+                  <div key={order.id} className="border border-art-pale p-4 md:p-6 space-y-4 w-full overflow-hidden">
+                    {/* Customer + total */}
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0">
                         <p className="font-serif text-base text-art-charcoal">{order.customer_name}</p>
                         <a href={`mailto:${order.customer_email}`}
-                          className="font-sans text-xs text-art-muted hover:text-art-charcoal transition-colors mt-0.5 block">
+                          className="font-sans text-xs text-art-muted hover:text-art-charcoal transition-colors mt-0.5 block truncate max-w-[200px] sm:max-w-none">
                           {order.customer_email}
                         </a>
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 shrink-0">
-                        <span className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1 ${statusColors[order.payment_status] || 'bg-gray-100 text-gray-600'}`}>
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        <span className={`font-sans text-[10px] tracking-widest uppercase px-2 py-1 ${statusBadge[order.payment_status] || 'bg-gray-100 text-gray-600'}`}>
                           {order.payment_status}
                         </span>
                         <p className="font-sans text-sm font-medium text-art-charcoal">{formatPrice(order.total)}</p>
                       </div>
                     </div>
 
+                    {/* Items */}
                     <div className="space-y-1.5">
                       {(order.items || []).map((item, i) => (
-                        <div key={i} className="flex justify-between font-sans text-xs text-art-muted">
-                          <span>{item.artwork_title} × {item.quantity}</span>
-                          <span>{formatPrice(item.price * item.quantity)}</span>
+                        <div key={i} className="flex justify-between gap-4 font-sans text-xs text-art-muted">
+                          <span className="truncate min-w-0">{item.artwork_title} × {item.quantity}</span>
+                          <span className="shrink-0">{formatPrice(item.price * item.quantity)}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-art-pale">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted">Progress</p>
-                        <select
+                    {/* Progress + address */}
+                    <div className="pt-3 border-t border-art-pale space-y-3">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Progress</p>
+                        <StatusSelect
                           value={order.fulfillment_status || 'processing'}
-                          onChange={e => updateOrderFulfillment(order.id, e.target.value)}
-                          className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1.5 border border-transparent rounded-sm cursor-pointer focus:outline-none appearance-none ${statusColors[order.fulfillment_status || 'processing']}`}
-                        >
-                          <option value="processing">Processing</option>
-                          <option value="confirmed">Confirmed</option>
-                          <option value="preparing">Preparing</option>
-                          <option value="shipped">Shipped</option>
-                          <option value="delivered">Delivered</option>
-                        </select>
+                          onChange={v => updateOrderFulfillment(order.id, v)}
+                          options={[
+                            { value: 'processing', label: 'Processing' },
+                            { value: 'confirmed',  label: 'Confirmed' },
+                            { value: 'preparing',  label: 'Preparing' },
+                            { value: 'shipped',    label: 'Shipped' },
+                            { value: 'delivered',  label: 'Delivered' },
+                          ]}
+                          className="border-art-pale text-art-charcoal"
+                        />
                       </div>
-                      <div className="flex flex-wrap justify-between gap-2">
-                        <p className="font-sans text-xs text-art-muted">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <p className="font-sans text-xs text-art-muted min-w-0 break-words">
                           {[order.customer_address?.line1, order.customer_address?.city, order.customer_address?.postal_code, order.customer_address?.country].filter(Boolean).join(', ')}
                         </p>
                         <p className="font-sans text-xs text-art-light shrink-0">{formatDate(order.created_at)}</p>
@@ -583,11 +596,12 @@ function AdminDashboard({
         {/* ── COMMISSIONS TAB ── */}
         {tab === 'commissions' && (
           <div>
-            <div className="flex items-center justify-between mb-6 md:mb-8">
+            <div className="flex items-center justify-between mb-6 gap-4">
               <h2 className="font-serif text-xl md:text-2xl font-light text-art-charcoal">
                 Commissions ({commissions.length})
               </h2>
-              <button onClick={fetchCommissions} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Refresh">
+              <button onClick={fetchCommissions} style={{ minHeight: 44, minWidth: 44, touchAction: 'manipulation' }}
+                className="text-art-muted hover:text-art-charcoal transition-colors flex items-center justify-center shrink-0" aria-label="Refresh">
                 <RefreshCw size={14} strokeWidth={1.5} />
               </button>
             </div>
@@ -603,18 +617,19 @@ function AdminDashboard({
             ) : (
               <div className="space-y-4">
                 {commissions.map(c => (
-                  <div key={c.id} className="border border-art-pale p-5 md:p-6 space-y-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
+                  <div key={c.id} className="border border-art-pale p-4 md:p-6 space-y-4 w-full overflow-hidden">
+                    {/* Name + status: stack on mobile */}
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="min-w-0">
                         <p className="font-serif text-base text-art-charcoal">{c.name}</p>
-                        <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
                           <a href={`mailto:${c.email}`}
-                            className="font-sans text-xs text-art-muted hover:text-art-charcoal transition-colors">
+                            className="font-sans text-xs text-art-muted hover:text-art-charcoal transition-colors truncate max-w-[220px]">
                             {c.email}
                           </a>
                           {c.phone && (
                             <>
-                              <span className="text-art-light">·</span>
+                              <span className="text-art-light hidden sm:inline">·</span>
                               <a href={`tel:${c.phone}`}
                                 className="font-sans text-xs text-art-muted hover:text-art-charcoal transition-colors">
                                 {c.phone}
@@ -623,34 +638,40 @@ function AdminDashboard({
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 shrink-0">
-                        <select
+                      {/* Status + date: never shrink below their content */}
+                      <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                        <StatusSelect
                           value={c.status}
-                          onChange={e => updateCommissionStatus(c.id, e.target.value)}
-                          className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1.5 border border-transparent rounded-sm cursor-pointer focus:outline-none appearance-none ${statusColors[c.status]}`}
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="accepted">Accepted</option>
-                          <option value="declined">Declined</option>
-                        </select>
-                        <p className="font-sans text-xs text-art-light">{formatDate(c.created_at)}</p>
+                          onChange={v => updateCommissionStatus(c.id, v)}
+                          options={[
+                            { value: 'pending',  label: 'Pending' },
+                            { value: 'accepted', label: 'Accepted' },
+                            { value: 'declined', label: 'Declined' },
+                          ]}
+                          className="border-art-pale text-art-charcoal"
+                        />
+                        <p className="font-sans text-xs text-art-light whitespace-nowrap">{formatDate(c.created_at)}</p>
                       </div>
                     </div>
+
                     <p className="font-sans text-sm text-art-warm leading-relaxed">{c.project_description}</p>
-                    <div className="flex flex-wrap gap-x-8 gap-y-2 pt-3 border-t border-art-pale">
-                      {c.size_preferences && (
-                        <div className="space-y-0.5">
-                          <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted">Size</p>
-                          <p className="font-sans text-xs text-art-charcoal">{c.size_preferences}</p>
-                        </div>
-                      )}
-                      {c.color_preferences && (
-                        <div className="space-y-0.5">
-                          <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted">Colour</p>
-                          <p className="font-sans text-xs text-art-charcoal">{c.color_preferences}</p>
-                        </div>
-                      )}
-                    </div>
+
+                    {(c.size_preferences || c.color_preferences) && (
+                      <div className="flex flex-wrap gap-x-8 gap-y-2 pt-3 border-t border-art-pale">
+                        {c.size_preferences && (
+                          <div className="space-y-0.5">
+                            <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted">Size</p>
+                            <p className="font-sans text-xs text-art-charcoal">{c.size_preferences}</p>
+                          </div>
+                        )}
+                        {c.color_preferences && (
+                          <div className="space-y-0.5">
+                            <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted">Colour</p>
+                            <p className="font-sans text-xs text-art-charcoal">{c.color_preferences}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -661,9 +682,10 @@ function AdminDashboard({
         {/* ── ANALYTICS TAB ── */}
         {tab === 'analytics' && (
           <div>
-            <div className="flex items-center justify-between mb-6 md:mb-8">
+            <div className="flex items-center justify-between mb-6 gap-4">
               <h2 className="font-serif text-xl md:text-2xl font-light text-art-charcoal">Analytics</h2>
-              <button onClick={fetchAnalytics} className="text-art-muted hover:text-art-charcoal transition-colors p-1.5" aria-label="Refresh">
+              <button onClick={fetchAnalytics} style={{ minHeight: 44, minWidth: 44, touchAction: 'manipulation' }}
+                className="text-art-muted hover:text-art-charcoal transition-colors flex items-center justify-center shrink-0" aria-label="Refresh">
                 <RefreshCw size={14} strokeWidth={1.5} />
               </button>
             </div>
@@ -673,29 +695,28 @@ function AdminDashboard({
                 <p className="font-serif text-xl font-light text-art-muted">Connect Supabase to view analytics.</p>
               </div>
             ) : analyticsLoading ? <PageLoader /> : !analytics ? null : (
-              <div className="space-y-10">
-                {/* Key metrics */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-8">
+                {/* Key metric cards — 2 cols on mobile, 4 on lg */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
-                    { label: 'Total Revenue', value: formatPrice(analytics.totalRevenue), icon: <TrendingUp size={16} strokeWidth={1.5} /> },
-                    { label: 'Total Orders', value: String(analytics.totalOrders), icon: <Package size={16} strokeWidth={1.5} /> },
-                    { label: 'Available Works', value: String(analytics.artworkCounts.available), icon: <Eye size={16} strokeWidth={1.5} /> },
-                    { label: 'Pending Commissions', value: String(analytics.commissionCounts.pending), icon: <MessageSquare size={16} strokeWidth={1.5} /> },
+                    { label: 'Total Revenue',       value: formatPrice(analytics.totalRevenue),          icon: <TrendingUp size={15} strokeWidth={1.5} /> },
+                    { label: 'Total Orders',         value: String(analytics.totalOrders),                icon: <Package size={15} strokeWidth={1.5} /> },
+                    { label: 'Available Works',      value: String(analytics.artworkCounts.available),    icon: <Eye size={15} strokeWidth={1.5} /> },
+                    { label: 'Pending Commissions',  value: String(analytics.commissionCounts.pending),   icon: <MessageSquare size={15} strokeWidth={1.5} /> },
                   ].map(stat => (
-                    <div key={stat.label} className="border border-art-pale p-5 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted">{stat.label}</p>
-                        <span className="text-art-light">{stat.icon}</span>
+                    <div key={stat.label} className="border border-art-pale p-4 space-y-3 overflow-hidden">
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="font-sans text-[9px] tracking-widest uppercase text-art-muted leading-tight">{stat.label}</p>
+                        <span className="text-art-light shrink-0">{stat.icon}</span>
                       </div>
-                      <p className="font-serif text-2xl md:text-3xl font-light text-art-charcoal">{stat.value}</p>
+                      <p className="font-serif text-xl md:text-3xl font-light text-art-charcoal truncate">{stat.value}</p>
                     </div>
                   ))}
                 </div>
 
                 {/* Breakdowns */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Artworks */}
-                  <div className="border border-art-pale p-6 space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="border border-art-pale p-5 space-y-4">
                     <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Artworks ({analytics.artworkCounts.total})</p>
                     <div className="space-y-3">
                       {[
@@ -704,16 +725,15 @@ function AdminDashboard({
                         { label: 'Sold',      count: analytics.artworkCounts.sold,      color: 'bg-red-400' },
                       ].map(({ label, count, color }) => {
                         const pct = analytics.artworkCounts.total > 0
-                          ? Math.round((count / analytics.artworkCounts.total) * 100)
-                          : 0;
+                          ? Math.round((count / analytics.artworkCounts.total) * 100) : 0;
                         return (
-                          <div key={label} className="space-y-1">
+                          <div key={label} className="space-y-1.5">
                             <div className="flex justify-between">
                               <span className="font-sans text-xs text-art-warm">{label}</span>
                               <span className="font-sans text-xs text-art-charcoal">{count}</span>
                             </div>
-                            <div className="h-1 bg-art-pale rounded-full overflow-hidden">
-                              <div className={`h-full ${color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                            <div className="h-1.5 bg-art-pale rounded-full overflow-hidden">
+                              <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
                             </div>
                           </div>
                         );
@@ -721,8 +741,7 @@ function AdminDashboard({
                     </div>
                   </div>
 
-                  {/* Commissions */}
-                  <div className="border border-art-pale p-6 space-y-5">
+                  <div className="border border-art-pale p-5 space-y-4">
                     <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Commissions ({analytics.commissionCounts.total})</p>
                     <div className="space-y-3">
                       {[
@@ -731,16 +750,15 @@ function AdminDashboard({
                         { label: 'Declined', count: analytics.commissionCounts.declined, color: 'bg-red-400' },
                       ].map(({ label, count, color }) => {
                         const pct = analytics.commissionCounts.total > 0
-                          ? Math.round((count / analytics.commissionCounts.total) * 100)
-                          : 0;
+                          ? Math.round((count / analytics.commissionCounts.total) * 100) : 0;
                         return (
-                          <div key={label} className="space-y-1">
+                          <div key={label} className="space-y-1.5">
                             <div className="flex justify-between">
                               <span className="font-sans text-xs text-art-warm">{label}</span>
                               <span className="font-sans text-xs text-art-charcoal">{count}</span>
                             </div>
-                            <div className="h-1 bg-art-pale rounded-full overflow-hidden">
-                              <div className={`h-full ${color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                            <div className="h-1.5 bg-art-pale rounded-full overflow-hidden">
+                              <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
                             </div>
                           </div>
                         );
@@ -751,23 +769,22 @@ function AdminDashboard({
 
                 {/* Recent orders */}
                 {analytics.recentOrders.length > 0 && (
-                  <div className="border border-art-pale p-6 space-y-4">
+                  <div className="border border-art-pale p-5 space-y-4">
                     <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Recent Orders</p>
                     <div className="divide-y divide-art-pale">
                       {analytics.recentOrders.map(order => (
-                        <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 py-3.5">
+                        <div key={order.id} className="flex items-start justify-between gap-3 py-3.5 flex-wrap">
                           <div className="min-w-0">
                             <p className="font-serif text-sm text-art-charcoal">{order.customer_name}</p>
-                            <p className="font-sans text-xs text-art-muted truncate">
+                            <p className="font-sans text-xs text-art-muted truncate max-w-[180px] sm:max-w-xs">
                               {(order.items || []).map(i => i.artwork_title).join(', ')}
                             </p>
                           </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span className={`font-sans text-[9px] tracking-widest uppercase px-2 py-0.5 ${statusColors[order.fulfillment_status || 'processing']}`}>
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                            <span className={`font-sans text-[9px] tracking-widest uppercase px-2 py-0.5 ${statusBadge[order.fulfillment_status || 'processing']}`}>
                               {order.fulfillment_status || 'processing'}
                             </span>
                             <span className="font-sans text-sm text-art-charcoal">{formatPrice(order.total)}</span>
-                            <span className="font-sans text-xs text-art-light hidden sm:block">{formatDate(order.created_at)}</span>
                           </div>
                         </div>
                       ))}
@@ -778,6 +795,7 @@ function AdminDashboard({
             )}
           </div>
         )}
+
       </div>
     </div>
   );
