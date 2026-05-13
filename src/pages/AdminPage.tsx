@@ -100,7 +100,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <div className="min-h-svh w-full bg-art-white flex items-center justify-center px-6">
+    <div className="min-h-screen w-full bg-art-white flex items-center justify-center px-6">
       <div className="w-full max-w-sm space-y-10">
         <div className="text-center space-y-3">
           <div className="flex justify-center"><Lock size={20} strokeWidth={1.5} className="text-art-muted" /></div>
@@ -110,7 +110,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-1">
             <Input label="Password" type="password" value={password}
-              onChange={e => { setPassword(e.target.value); setError(false); }} autoFocus required />
+              onChange={e => { setPassword(e.target.value); setError(false); }} required />
             {error && <p className="font-sans text-xs text-red-500 pt-1">Incorrect password.</p>}
           </div>
           <Button type="submit" size="lg" className="w-full">Enter Dashboard</Button>
@@ -407,7 +407,7 @@ function AdminDashboard({
 
   // ── render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-svh w-full bg-art-white overflow-x-hidden">
+    <div className="min-h-screen w-full bg-art-white">
 
       {/* Top bar */}
       <div className="border-b border-art-pale sticky top-0 bg-art-white z-40">
