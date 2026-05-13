@@ -8,21 +8,9 @@ import type { Artwork } from '../../types';
 const COLS = 3;
 const ROWS = 4;
 
-// Scatter values kept small enough to stay inside the viewport on any screen
-const SCATTER = [
-  { x: -110, y:  -90, r: -12 },
-  { x:    0, y: -130, r:   8 },
-  { x:  120, y:  -70, r: -10 },
-  { x: -140, y:  -20, r:  16 },
-  { x:  -55, y:   85, r: -18 },
-  { x:  145, y:   35, r:  14 },
-  { x:  -85, y:  115, r:  -8 },
-  { x:   65, y:  -55, r:  22 },
-  { x:  130, y:  100, r: -15 },
-  { x: -120, y:  140, r:  13 },
-  { x:  -25, y:  125, r: -13 },
-  { x:  105, y:  150, r:  10 },
-];
+// Each row appears at a different scroll position — top to bottom
+const ROW_START = [0.00, 0.22, 0.44, 0.66];
+const ROW_END   = [0.18, 0.40, 0.58, 0.80];
 
 const STAGES = [
   { label: 'Observation', body: 'Every work begins long before the first mark — in hours of looking, sitting with a subject until it stops being an object.' },
@@ -31,21 +19,13 @@ const STAGES = [
   { label: 'Completion',   body: 'A painting is finished not when nothing can be added, but when nothing needs to be.' },
 ];
 
-// CSS Grid layout — no absolute positioning, no clipping issues
-function Tile({ col, row, scatter, progress, imageUrl }: {
+function Tile({ col, row, progress, imageUrl }: {
   col: number; row: number;
-  scatter: { x: number; y: number; r: number };
   progress: MotionValue<number>;
   imageUrl: string;
 }) {
-  const idx     = col + row * COLS;
-  const startAt = (idx / (COLS * ROWS)) * 0.55;
-  const endAt   = startAt + 0.3;
-
-  const x       = useTransform(progress, [startAt, endAt], [scatter.x, 0]);
-  const y       = useTransform(progress, [startAt, endAt], [scatter.y, 0]);
-  const rotate  = useTransform(progress, [startAt, endAt], [scatter.r, 0]);
-  const opacity = useTransform(progress, [0, startAt, Math.min(startAt + 0.12, endAt)], [0.25, 0.25, 1]);
+  const opacity = useTransform(progress, [ROW_START[row], ROW_END[row]], [0, 1]);
+  const y       = useTransform(progress, [ROW_START[row], ROW_END[row]], [28, 0]);
 
   const bgX = COLS > 1 ? (col / (COLS - 1)) * 100 : 0;
   const bgY = ROWS > 1 ? (row / (ROWS - 1)) * 100 : 0;
@@ -53,7 +33,7 @@ function Tile({ col, row, scatter, progress, imageUrl }: {
   return (
     <motion.div
       style={{
-        x, y, rotate, opacity,
+        opacity, y,
         backgroundImage:    `url(${imageUrl})`,
         backgroundSize:     `${COLS * 100}% ${ROWS * 100}%`,
         backgroundPosition: `${bgX}% ${bgY}%`,
@@ -67,13 +47,13 @@ function StageText({ index, stage, progress }: {
   stage: typeof STAGES[number];
   progress: MotionValue<number>;
 }) {
-  const s       = index * 0.20;
-  const peak    = s + 0.10;
-  const e       = s + 0.18;
-  const fadeOut = Math.min(e + 0.06, 0.78);
+  const s       = ROW_START[index];
+  const peak    = s + 0.09;
+  const e       = ROW_END[index];
+  const fadeOut = Math.min(e + 0.08, 0.82);
 
   const opacity = useTransform(progress, [s, peak, e, fadeOut], [0, 1, 1, 0]);
-  const y       = useTransform(progress, [s, peak], [12, 0]);
+  const y       = useTransform(progress, [s, peak], [10, 0]);
 
   return (
     <motion.div style={{ opacity, y }} className="absolute inset-0 flex flex-col justify-center">
@@ -84,8 +64,8 @@ function StageText({ index, stage, progress }: {
 }
 
 function ArtworkInfo({ artwork, progress }: { artwork: Artwork; progress: MotionValue<number> }) {
-  const opacity = useTransform(progress, [0.80, 0.95], [0, 1]);
-  const y       = useTransform(progress, [0.80, 0.95], [16, 0]);
+  const opacity = useTransform(progress, [0.82, 0.97], [0, 1]);
+  const y       = useTransform(progress, [0.82, 0.97], [14, 0]);
 
   return (
     <motion.div
@@ -138,9 +118,11 @@ function AssemblyScene({ artwork }: { artwork: Artwork }) {
   }, [progress]);
 
   return (
-    <div ref={wrapperRef} className="bg-art-charcoal" style={{ height: '350vh' }}>
-      <div className="sticky top-0 bg-art-charcoal flex items-center justify-center" style={{ height: '100vh' }}>
-
+    <div ref={wrapperRef} className="bg-art-charcoal" style={{ height: '320vh' }}>
+      <div
+        className="sticky top-0 bg-art-charcoal flex items-center justify-center"
+        style={{ height: '100vh' }}
+      >
         {/* Process text — left */}
         <div className="absolute left-8 md:left-14 top-1/2 -translate-y-1/2 w-[155px] md:w-[210px]">
           <p className="font-sans text-[9px] tracking-widest uppercase text-white/20 mb-8">The Process</p>
@@ -151,7 +133,7 @@ function AssemblyScene({ artwork }: { artwork: Artwork }) {
           </div>
         </div>
 
-        {/* Tile grid — CSS Grid, no absolute positioning, no clipping */}
+        {/* Painting — builds row by row */}
         <div
           style={{
             display: 'grid',
@@ -161,19 +143,18 @@ function AssemblyScene({ artwork }: { artwork: Artwork }) {
             height: 'min(51vw, 320px)',
           }}
         >
-          {SCATTER.map((scatter, i) => (
+          {Array.from({ length: COLS * ROWS }, (_, i) => (
             <Tile
               key={i}
               col={i % COLS}
               row={Math.floor(i / COLS)}
-              scatter={scatter}
               progress={progress}
               imageUrl={artwork.images[0]}
             />
           ))}
         </div>
 
-        {/* Artwork info — right */}
+        {/* Artwork info — right, appears once fully built */}
         <ArtworkInfo artwork={artwork} progress={progress} />
       </div>
     </div>
