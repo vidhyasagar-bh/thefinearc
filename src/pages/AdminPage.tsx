@@ -14,6 +14,7 @@ import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { mockArtworks } from '../lib/mockData';
+import { fetchEtsyListings, etsyListingToPayload, type EtsyListing } from '../lib/etsy';
 
 type AdminTab = 'artworks' | 'orders' | 'commissions' | 'analytics';
 
@@ -202,6 +203,159 @@ function MediaUploader({
   );
 }
 
+// ── Etsy Import Modal ──────────────────────────────────────────────────────────
+function EtsyImportModal({
+  onClose,
+  onImported,
+}: {
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [apiKey, setApiKey] = useState(import.meta.env.VITE_ETSY_API_KEY ?? '');
+  const [listings, setListings] = useState<EtsyListing[]>([]);
+  const [fetching, setFetching] = useState(false);
+  const [imported, setImported] = useState<Set<number>>(new Set());
+  const [importing, setImporting] = useState<Set<number>>(new Set());
+
+  async function handleFetch() {
+    if (!apiKey.trim()) { toast.error('Enter your Etsy API key.'); return; }
+    setFetching(true);
+    try {
+      const results = await fetchEtsyListings(apiKey.trim());
+      setListings(results);
+      if (results.length === 0) toast('No active listings found on Etsy.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to fetch from Etsy.');
+    }
+    setFetching(false);
+  }
+
+  async function handleImport(listing: EtsyListing) {
+    if (!supabaseConfigured) { toast.error('Connect Supabase to import artworks.'); return; }
+    setImporting(prev => new Set(prev).add(listing.listing_id));
+    try {
+      const payload = etsyListingToPayload(listing);
+      const { error } = await supabase.from('artworks').insert(payload);
+      if (error) throw error;
+      setImported(prev => new Set(prev).add(listing.listing_id));
+      toast.success(`"${listing.title.slice(0, 40)}" imported.`);
+      onImported();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Import failed.');
+    }
+    setImporting(prev => { const s = new Set(prev); s.delete(listing.listing_id); return s; });
+  }
+
+  async function handleImportAll() {
+    const pending = listings.filter(l => !imported.has(l.listing_id));
+    for (const listing of pending) {
+      await handleImport(listing);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-art-white w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-art-pale shrink-0">
+          <div>
+            <h2 className="font-serif text-xl font-light text-art-charcoal">Import from Etsy</h2>
+            <p className="font-sans text-xs text-art-muted mt-0.5">Shop: thefinearcbyleela</p>
+          </div>
+          <button onClick={onClose}
+            className="font-sans text-xl text-art-muted hover:text-art-charcoal transition-colors leading-none">
+            ×
+          </button>
+        </div>
+
+        {/* API key row */}
+        <div className="px-6 py-4 border-b border-art-pale shrink-0">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Input
+                label="Etsy API Key"
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                placeholder="Paste your keystring from developers.etsy.com"
+              />
+            </div>
+            <div className="pt-6 shrink-0">
+              <Button size="sm" onClick={handleFetch} disabled={fetching}>
+                {fetching ? 'Fetching…' : 'Fetch Listings'}
+              </Button>
+            </div>
+          </div>
+          {!import.meta.env.VITE_ETSY_API_KEY && (
+            <p className="font-sans text-[10px] text-art-muted mt-2">
+              Tip: set <code className="bg-cream-100 px-1">VITE_ETSY_API_KEY</code> in your .env to pre-fill this.
+            </p>
+          )}
+        </div>
+
+        {/* Listings grid */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {listings.length === 0 && !fetching && (
+            <p className="font-sans text-sm text-art-muted text-center py-16">
+              Enter your API key and click Fetch Listings to see your active Etsy listings.
+            </p>
+          )}
+
+          {listings.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="font-sans text-xs text-art-muted">{listings.length} listings found</p>
+                <Button size="sm" variant="secondary" onClick={handleImportAll}>
+                  Import All
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {listings.map(listing => {
+                  const done = imported.has(listing.listing_id);
+                  const busy = importing.has(listing.listing_id);
+                  const price = listing.price.amount / listing.price.divisor;
+                  const thumb = listing.images?.[0]?.url_570xN;
+
+                  return (
+                    <div key={listing.listing_id}
+                      className={`border border-art-pale p-3 space-y-2 ${done ? 'opacity-60' : ''}`}>
+                      {thumb && (
+                        <div className="aspect-square overflow-hidden bg-cream-100">
+                          <img src={thumb} alt={listing.title}
+                            className="w-full h-full object-cover" loading="lazy" />
+                        </div>
+                      )}
+                      <p className="font-sans text-xs text-art-charcoal leading-snug line-clamp-2">
+                        {listing.title}
+                      </p>
+                      <p className="font-serif text-sm text-art-warm">
+                        {listing.price.currency_code} {price.toFixed(2)}
+                      </p>
+                      <button
+                        onClick={() => handleImport(listing)}
+                        disabled={done || busy}
+                        className={`w-full font-sans text-[10px] tracking-widest uppercase py-1.5 border transition-colors ${
+                          done
+                            ? 'border-green-300 text-green-600 bg-green-50'
+                            : 'border-art-light text-art-charcoal hover:border-art-charcoal hover:bg-cream-50'
+                        }`}
+                      >
+                        {busy ? 'Importing…' : done ? '✓ Imported' : 'Import'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ── Login ──────────────────────────────────────────────────────────────────────
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   const [password, setPassword] = useState('');
@@ -246,6 +400,8 @@ export function AdminPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyArtwork);
+
+  const [showEtsyImport, setShowEtsyImport] = useState(false);
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -580,6 +736,10 @@ function AdminDashboard({
                   className="p-2 text-art-muted hover:text-art-charcoal transition-colors" aria-label="Refresh">
                   <RefreshCw size={14} strokeWidth={1.5} />
                 </button>
+                <Button size="sm" variant="secondary" onClick={() => setShowEtsyImport(true)}>
+                  <span className="hidden sm:inline">Import from Etsy</span>
+                  <span className="sm:hidden">Etsy</span>
+                </Button>
                 <Button size="sm" onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyArtwork); }}>
                   <Plus size={13} strokeWidth={1.5} />
                   <span className="hidden xs:inline ml-1">Add</span>
@@ -937,6 +1097,14 @@ function AdminDashboard({
         )}
 
       </div>
+
+      {showEtsyImport && (
+        <EtsyImportModal
+          onClose={() => setShowEtsyImport(false)}
+          onImported={fetchArtworks}
+        />
+      )}
+
     </div>
   );
 }
