@@ -401,8 +401,6 @@ export function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyArtwork);
 
-  const [showEtsyImport, setShowEtsyImport] = useState(false);
-
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
@@ -457,6 +455,8 @@ function AdminDashboard({
   analyticsLoading: boolean; setAnalyticsLoading: (v: boolean) => void;
 }) {
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, []);
+
+  const [showEtsyImport, setShowEtsyImport] = useState(false);
 
   // ── data fetchers ────────────────────────────────────────────────────────────
   const fetchArtworks = useCallback(async () => {
