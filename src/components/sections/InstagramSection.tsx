@@ -17,7 +17,7 @@ export function InstagramSection() {
         <FadeIn>
           <div className="text-center mb-12">
             <a
-              href="https://instagram.com"
+              href="https://www.instagram.com/the.fine.arc"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 font-sans text-[11px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors group"
@@ -32,7 +32,7 @@ export function InstagramSection() {
           {instagramPosts.map((src, i) => (
             <FadeIn key={i} delay={i * 0.06}>
               <a
-                href="https://instagram.com"
+                href="https://www.instagram.com/the.fine.arc"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block aspect-square overflow-hidden group"

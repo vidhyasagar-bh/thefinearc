@@ -70,7 +70,7 @@ export function ContactPage() {
                   </span>
                 </a>
                 <a
-                  href="https://instagram.com"
+                  href="https://www.instagram.com/the.fine.arc"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-4 text-art-muted hover:text-art-charcoal transition-colors group"

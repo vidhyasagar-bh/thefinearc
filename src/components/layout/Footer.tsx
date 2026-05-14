@@ -17,7 +17,7 @@ export function Footer() {
             </p>
             <div className="flex items-center gap-5 pt-2">
               <a
-                href="https://instagram.com"
+                href="https://www.instagram.com/the.fine.arc"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-white/40 hover:text-white transition-colors duration-300"
