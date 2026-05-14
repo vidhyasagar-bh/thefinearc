@@ -25,7 +25,7 @@ export function Footer() {
                 <InstagramIcon size={18} />
               </a>
               <a
-                href="mailto:hello@thefinearc.com"
+                href="mailto:thefinearc@gmail.com"
                 className="text-white/40 hover:text-white transition-colors duration-300"
               >
                 <Mail size={18} strokeWidth={1.5} />

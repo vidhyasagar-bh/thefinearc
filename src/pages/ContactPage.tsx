@@ -61,12 +61,12 @@ export function ContactPage() {
 
               <div className="space-y-5 pt-4">
                 <a
-                  href="mailto:hello@thefinearc.com"
+                  href="mailto:thefinearc@gmail.com"
                   className="flex items-center gap-4 text-art-muted hover:text-art-charcoal transition-colors group"
                 >
                   <Mail size={18} strokeWidth={1.5} />
                   <span className="font-sans text-sm group-hover:underline underline-offset-4">
-                    hello@thefinearc.com
+                    thefinearc@gmail.com
                   </span>
                 </a>
                 <a
