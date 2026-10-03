@@ -15,9 +15,9 @@ export interface EtsyListing {
 }
 
 export async function fetchEtsyListings(apiKey: string, shopId: string): Promise<EtsyListing[]> {
-  const url = `https://openapi.etsy.com/v3/application/shops/${shopId}/listings/active?limit=100&includes=Images`;
-  console.log('[Etsy] Fetching listings:', url);
-  const res = await fetch(url, { headers: { 'x-api-key': apiKey } });
+  const url = `/api/etsy-listings?shopId=${encodeURIComponent(shopId)}`;
+  console.log('[Etsy] Fetching listings via proxy:', url);
+  const res = await fetch(url, { method: 'GET', headers: { 'x-etsy-key': apiKey } });
   console.log('[Etsy] Status:', res.status, res.statusText);
   const body = await res.text();
   console.log('[Etsy] Body:', body.slice(0, 500));
