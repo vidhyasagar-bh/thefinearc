@@ -18,12 +18,16 @@ export interface EtsyListing {
 
 export async function fetchEtsyListings(apiKey: string): Promise<EtsyListing[]> {
   const url = `https://openapi.etsy.com/v3/application/shops/${ETSY_SHOP}/listings/active?limit=100&includes=Images`;
+  console.log('[Etsy] Fetching:', url);
   const res = await fetch(url, { headers: { 'x-api-key': apiKey } });
+  console.log('[Etsy] Response status:', res.status, res.statusText);
+  const body = await res.text();
+  console.log('[Etsy] Response body:', body.slice(0, 500));
   if (!res.ok) {
-    const body = await res.text();
     throw new Error(`Etsy ${res.status}: ${body}`);
   }
-  const data = await res.json();
+  const data = JSON.parse(body);
+  console.log('[Etsy] Listing count:', data.results?.length ?? 0);
   return (data.results ?? []) as EtsyListing[];
 }
 
