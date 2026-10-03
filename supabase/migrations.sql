@@ -36,3 +36,6 @@ END $$;
 
 -- 4. Drop newsletter subscribers table (optional — uncomment to remove)
 -- DROP TABLE IF EXISTS public.newsletter_subscribers;
+
+-- 5. Video support for artworks (admin uploader writes video_url)
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS video_url text;
