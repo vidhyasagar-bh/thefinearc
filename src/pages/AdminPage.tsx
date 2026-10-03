@@ -212,6 +212,7 @@ function EtsyImportModal({
   onImported: () => void;
 }) {
   const [apiKey, setApiKey] = useState(import.meta.env.VITE_ETSY_API_KEY ?? '');
+  const [shopId, setShopId] = useState(import.meta.env.VITE_ETSY_SHOP_ID ?? '');
   const [listings, setListings] = useState<EtsyListing[]>([]);
   const [fetching, setFetching] = useState(false);
   const [imported, setImported] = useState<Set<number>>(new Set());
@@ -219,9 +220,10 @@ function EtsyImportModal({
 
   async function handleFetch() {
     if (!apiKey.trim()) { toast.error('Enter your Etsy API key.'); return; }
+    if (!shopId.trim()) { toast.error('Enter your Etsy Shop ID.'); return; }
     setFetching(true);
     try {
-      const results = await fetchEtsyListings(apiKey.trim());
+      const results = await fetchEtsyListings(apiKey.trim(), shopId.trim());
       setListings(results);
       if (results.length === 0) toast('No active listings found on Etsy.');
     } catch (err) {
@@ -280,6 +282,14 @@ function EtsyImportModal({
                 placeholder="Paste your keystring from developers.etsy.com"
               />
             </div>
+            <div className="flex-1">
+              <Input
+                label="Shop ID"
+                value={shopId}
+                onChange={e => setShopId(e.target.value)}
+                placeholder="e.g. 12345678"
+              />
+            </div>
             <div className="pt-6 shrink-0">
               <Button size="sm" onClick={handleFetch} disabled={fetching}>
                 {fetching ? 'Fetching…' : 'Fetch Listings'}
@@ -288,7 +298,7 @@ function EtsyImportModal({
           </div>
           {!import.meta.env.VITE_ETSY_API_KEY && (
             <p className="font-sans text-[10px] text-art-muted mt-2">
-              Tip: set <code className="bg-cream-100 px-1">VITE_ETSY_API_KEY</code> in your .env to pre-fill this.
+              Tip: set <code className="bg-cream-100 px-1">VITE_ETSY_API_KEY</code> and <code className="bg-cream-100 px-1">VITE_ETSY_SHOP_ID</code> in your .env to pre-fill these.
             </p>
           )}
         </div>
