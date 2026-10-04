@@ -14,7 +14,7 @@ import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { mockArtworks } from '../lib/mockData';
-import { fetchEtsyListings, etsyListingToPayload, type EtsyListing } from '../lib/etsy';
+import { fetchEtsyListings, etsyListingToPayload, etsyNewListingDefaults, type EtsyListing } from '../lib/etsy';
 
 type AdminTab = 'artworks' | 'orders' | 'commissions' | 'analytics';
 
@@ -237,10 +237,15 @@ function EtsyImportModal({
     setImporting(prev => new Set(prev).add(listing.listing_id));
     try {
       const payload = etsyListingToPayload(listing);
-      const { error } = await supabase.from('artworks').insert(payload);
+      const { data: existing, error: lookupError } = await supabase
+        .from('artworks').select('id').eq('etsy_listing_id', listing.listing_id).maybeSingle();
+      if (lookupError) throw lookupError;
+      const { error } = existing
+        ? await supabase.from('artworks').update(payload).eq('id', existing.id)
+        : await supabase.from('artworks').insert({ ...etsyNewListingDefaults(), ...payload });
       if (error) throw error;
       setImported(prev => new Set(prev).add(listing.listing_id));
-      toast.success(`"${listing.title.slice(0, 40)}" imported.`);
+      toast.success(`"${listing.title.slice(0, 40)}" ${existing ? 'updated' : 'imported'}.`);
       onImported();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Import failed.');

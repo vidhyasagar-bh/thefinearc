@@ -4,7 +4,7 @@ import { Layout } from '../components/layout/Layout';
 import { FadeIn } from '../components/ui/FadeIn';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { useCartStore } from '../store/cartStore';
+import { useCartStore, cartKey, unitPrice } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { sendEmail } from '../lib/emailService';
@@ -47,11 +47,13 @@ export function CheckoutPage() {
           postal_code: form.postal_code,
           country: form.country,
         },
-        items: items.map(({ artwork, quantity }) => ({
-          artwork_id: artwork.id,
-          artwork_title: artwork.title,
-          quantity,
-          price: artwork.price,
+        items: items.map((item) => ({
+          artwork_id: item.artwork.id,
+          artwork_title: item.variation
+            ? `${item.artwork.title} (${item.variation.options.map(o => `${o.name}: ${o.value}`).join(', ')})`
+            : item.artwork.title,
+          quantity: item.quantity,
+          price: unitPrice(item),
         })),
         total: cartTotal,
         payment_status: 'pending',
@@ -74,7 +76,13 @@ export function CheckoutPage() {
       name: form.name,
       email: form.email,
       customer_address: { line1: form.address, city: form.city, postal_code: form.postal_code, country: form.country },
-      items: items.map(({ artwork, quantity }) => ({ artwork_title: artwork.title, quantity, price: artwork.price })),
+      items: items.map((item) => ({
+        artwork_title: item.variation
+          ? `${item.artwork.title} (${item.variation.options.map(o => `${o.name}: ${o.value}`).join(', ')})`
+          : item.artwork.title,
+        quantity: item.quantity,
+        price: unitPrice(item),
+      })),
       total: cartTotal,
     };
 
@@ -241,18 +249,18 @@ export function CheckoutPage() {
               <div className="space-y-5 bg-cream-50 p-6 md:p-7 md:sticky md:top-32 self-start order-1 md:order-2">
                 <h2 className="font-serif text-lg font-light text-art-charcoal">Your Selection</h2>
                 <div className="space-y-4">
-                  {items.map(({ artwork }) => (
-                    <div key={artwork.id} className="flex gap-4">
+                  {items.map((item) => { const { artwork } = item; return (
+                    <div key={cartKey(item)} className="flex gap-4">
                       <div className="w-14 h-14 shrink-0 overflow-hidden bg-cream-100">
                         <img src={artwork.images[0]} alt={artwork.title} className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-serif text-sm font-light text-art-charcoal leading-snug">{artwork.title}</p>
-                        <p className="font-sans text-xs text-art-muted mt-0.5">{artwork.dimensions}</p>
+                        <p className="font-sans text-xs text-art-muted mt-0.5">{item.variation ? item.variation.options.map(o => `${o.name}: ${o.value}`).join(' · ') : artwork.dimensions}</p>
                       </div>
-                      <p className="font-sans text-sm text-art-charcoal shrink-0">{formatPrice(artwork.price)}</p>
+                      <p className="font-sans text-sm text-art-charcoal shrink-0">{formatPrice(unitPrice(item))}</p>
                     </div>
-                  ))}
+                  ); })}
                 </div>
                 <div className="border-t border-art-pale pt-4 flex justify-between">
                   <span className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Total</span>

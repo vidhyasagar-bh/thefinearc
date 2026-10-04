@@ -39,3 +39,12 @@ END $$;
 
 -- 5. Video support for artworks (admin uploader writes video_url)
 ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS video_url text;
+
+-- 6. Etsy listing data: inventory, variations, tags, video, extra metadata
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS quantity integer;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS tags text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS variations jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS etsy_url text;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS etsy_listing_id bigint;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS etsy_data jsonb;
+CREATE UNIQUE INDEX IF NOT EXISTS artworks_etsy_listing_id_key ON public.artworks (etsy_listing_id) WHERE etsy_listing_id IS NOT NULL;

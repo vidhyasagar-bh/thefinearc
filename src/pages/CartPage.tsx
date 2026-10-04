@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { FadeIn } from '../components/ui/FadeIn';
-import { useCartStore } from '../store/cartStore';
+import { useCartStore, cartKey, unitPrice } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
 
 export function CartPage() {
@@ -42,9 +42,9 @@ export function CartPage() {
               {/* Items */}
               <div className="md:col-span-2 divide-y divide-art-pale">
                 <AnimatePresence initial={false}>
-                  {items.map(({ artwork }) => (
+                  {items.map((item) => { const { artwork, variation } = item; return (
                     <motion.div
-                      key={artwork.id}
+                      key={cartKey(item)}
                       layout
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -74,11 +74,13 @@ export function CartPage() {
                                 </h3>
                               </Link>
                               <p className="font-sans text-xs text-art-muted mt-1 truncate">
-                                {artwork.materials} · {artwork.dimensions}
+                                {variation
+                                  ? variation.options.map(o => `${o.name}: ${o.value}`).join(' · ')
+                                  : [artwork.materials, artwork.dimensions].filter(Boolean).join(' · ')}
                               </p>
                             </div>
                             <button
-                              onClick={() => removeItem(artwork.id)}
+                              onClick={() => removeItem(cartKey(item))}
                               aria-label="Remove"
                               className="text-art-light hover:text-art-muted transition-colors shrink-0 p-1 -mr-1"
                             >
@@ -87,12 +89,12 @@ export function CartPage() {
                           </div>
 
                           <p className="font-sans text-base text-art-charcoal mt-3">
-                            {formatPrice(artwork.price)}
+                            {formatPrice(unitPrice(item))}
                           </p>
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                  ); })}
                 </AnimatePresence>
               </div>
 
@@ -103,13 +105,13 @@ export function CartPage() {
                     Order Summary
                   </h2>
                   <div className="space-y-3">
-                    {items.map(({ artwork }) => (
-                      <div key={artwork.id} className="flex justify-between text-sm gap-4">
+                    {items.map((item) => (
+                      <div key={cartKey(item)} className="flex justify-between text-sm gap-4">
                         <span className="font-sans text-art-muted truncate">
-                          {artwork.title}
+                          {item.artwork.title}
                         </span>
                         <span className="font-sans text-art-charcoal shrink-0">
-                          {formatPrice(artwork.price)}
+                          {formatPrice(unitPrice(item))}
                         </span>
                       </div>
                     ))}

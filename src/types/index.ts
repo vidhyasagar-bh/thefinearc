@@ -12,8 +12,46 @@ export interface Artwork {
   framing?: string;
   year?: number;
   video_url?: string;
+  quantity?: number;
+  tags?: string[];
+  variations?: ArtworkVariation[];
+  etsy_url?: string;
+  etsy_listing_id?: number;
+  etsy_data?: EtsyExtras;
   created_at: string;
   updated_at?: string;
+}
+
+export interface ArtworkVariation {
+  id: string;
+  sku?: string;
+  options: { name: string; value: string }[];
+  price: number;
+  quantity: number;
+}
+
+export interface EtsyExtras {
+  who_made?: string;
+  when_made?: string;
+  is_supply?: boolean;
+  is_customizable?: boolean;
+  is_personalizable?: boolean;
+  personalization_instructions?: string | null;
+  processing_min?: number | null;
+  processing_max?: number | null;
+  processing_unit?: string | null;
+  views?: number;
+  num_favorers?: number;
+  item_weight?: number | null;
+  item_weight_unit?: string | null;
+  videos?: { video_url: string; thumbnail_url?: string }[];
+  shipping?: {
+    profile_title?: string;
+    origin_country_iso?: string;
+    min_processing_days?: number;
+    max_processing_days?: number;
+    destinations?: { destination: string; primary_cost?: number; secondary_cost?: number; currency?: string }[];
+  } | null;
 }
 
 export type ArtworkCategory =
@@ -27,6 +65,7 @@ export type ArtworkCategory =
 
 export interface CartItem {
   artwork: Artwork;
+  variation?: ArtworkVariation;
   quantity: number;
 }
 

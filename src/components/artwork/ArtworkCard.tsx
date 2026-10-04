@@ -56,7 +56,7 @@ export function ArtworkCard({ artwork, index = 0 }: ArtworkCardProps) {
           <p className="font-sans text-xs text-art-muted">{artwork.materials} · {artwork.dimensions}</p>
           <div className="flex items-center justify-between pt-1">
             <p className={`font-sans text-sm ${config.className}`}>
-              {artwork.availability === 'sold' ? 'Sold' : formatPrice(artwork.price)}
+              {artwork.availability === 'sold' ? 'Sold' : `${artwork.variations && artwork.variations.length > 1 ? 'From ' : ''}${formatPrice(artwork.price)}`}
             </p>
             <span className="font-sans text-[10px] tracking-widest uppercase text-art-light group-hover:text-art-muted transition-colors duration-300">
               View →

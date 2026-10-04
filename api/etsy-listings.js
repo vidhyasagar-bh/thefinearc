@@ -1,3 +1,5 @@
+const RESOURCES = new Set(['images', 'videos', 'inventory']);
+
 export default async function handler(req, res) {
   const apiKey = req.headers['x-etsy-key'] || process.env.ETSY_API_KEY;
   const shopId = req.query.shopId || process.env.ETSY_SHOP_ID;
@@ -9,13 +11,20 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Shop ID must be numeric' });
   }
 
-  const listingId = req.query.listingId;
-  if (listingId && !/^\d+$/.test(String(listingId))) {
-    return res.status(400).json({ error: 'Listing ID must be numeric' });
+  const { listingId, resource } = req.query;
+  let url;
+  if (listingId) {
+    if (!/^\d+$/.test(String(listingId))) {
+      return res.status(400).json({ error: 'Listing ID must be numeric' });
+    }
+    const r = resource || 'images';
+    if (!RESOURCES.has(String(r))) {
+      return res.status(400).json({ error: 'Unsupported resource' });
+    }
+    url = `https://openapi.etsy.com/v3/application/listings/${listingId}/${r}`;
+  } else {
+    url = `https://openapi.etsy.com/v3/application/shops/${shopId}/listings/active?limit=100&includes=Images,Videos,Inventory,Shipping`;
   }
-  const url = listingId
-    ? `https://openapi.etsy.com/v3/application/listings/${listingId}/images`
-    : `https://openapi.etsy.com/v3/application/shops/${shopId}/listings/active?limit=100&includes=Images`;
   console.log('[etsy-listings] GET', url);
 
   try {

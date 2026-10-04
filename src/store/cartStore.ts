@@ -1,12 +1,20 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CartItem, Artwork } from '../types';
+import type { CartItem, Artwork, ArtworkVariation } from '../types';
+
+export function cartKey(item: Pick<CartItem, 'artwork' | 'variation'>): string {
+  return `${item.artwork.id}:${item.variation?.id ?? ''}`;
+}
+
+export function unitPrice(item: Pick<CartItem, 'artwork' | 'variation'>): number {
+  return item.variation?.price ?? item.artwork.price;
+}
 
 interface CartStore {
   items: CartItem[];
-  addItem: (artwork: Artwork) => void;
-  removeItem: (artworkId: string) => void;
-  updateQuantity: (artworkId: string, quantity: number) => void;
+  addItem: (artwork: Artwork, variation?: ArtworkVariation) => void;
+  removeItem: (key: string) => void;
+  updateQuantity: (key: string, quantity: number) => void;
   clearCart: () => void;
   total: () => number;
   itemCount: () => number;
@@ -17,44 +25,34 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
 
-      addItem: (artwork: Artwork) => {
+      addItem: (artwork, variation) => {
         set((state) => {
-          // Original artworks are unique — cap at 1
-          if (state.items.find(i => i.artwork.id === artwork.id)) return state;
-          return { items: [...state.items, { artwork, quantity: 1 }] };
+          // Original artworks are unique — cap at 1 per artwork/variation
+          const key = cartKey({ artwork, variation });
+          if (state.items.find(i => cartKey(i) === key)) return state;
+          return { items: [...state.items, { artwork, variation, quantity: 1 }] };
         });
       },
 
-      removeItem: (artworkId: string) => {
-        set((state) => ({
-          items: state.items.filter(i => i.artwork.id !== artworkId),
-        }));
+      removeItem: (key) => {
+        set((state) => ({ items: state.items.filter(i => cartKey(i) !== key) }));
       },
 
-      updateQuantity: (artworkId: string, quantity: number) => {
+      updateQuantity: (key, quantity) => {
         if (quantity < 1) {
-          get().removeItem(artworkId);
+          get().removeItem(key);
           return;
         }
         set((state) => ({
-          items: state.items.map(i =>
-            i.artwork.id === artworkId ? { ...i, quantity } : i
-          ),
+          items: state.items.map(i => (cartKey(i) === key ? { ...i, quantity } : i)),
         }));
       },
 
       clearCart: () => set({ items: [] }),
 
-      total: () => {
-        return get().items.reduce(
-          (sum, item) => sum + item.artwork.price * item.quantity,
-          0
-        );
-      },
+      total: () => get().items.reduce((sum, item) => sum + unitPrice(item) * item.quantity, 0),
 
-      itemCount: () => {
-        return get().items.reduce((sum, item) => sum + item.quantity, 0);
-      },
+      itemCount: () => get().items.reduce((sum, item) => sum + item.quantity, 0),
     }),
     { name: 'thefinearc-cart' }
   )

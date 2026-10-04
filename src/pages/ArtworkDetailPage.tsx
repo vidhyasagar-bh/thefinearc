@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ZoomIn, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
+import { X, ZoomIn, ChevronLeft, ChevronRight, ShoppingBag, Play } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { FadeIn } from '../components/ui/FadeIn';
@@ -11,6 +11,7 @@ import { useArtwork, useArtworks } from '../hooks/useArtworks';
 import { useCartStore } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
 import toast from 'react-hot-toast';
+import type { ArtworkVariation } from '../types';
 
 export function ArtworkDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,7 @@ export function ArtworkDetailPage() {
 
   const [activeImage, setActiveImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [selected, setSelected] = useState<Record<string, string>>({});
 
   if (loading) return <PageLoader />;
   if (!artwork) return (
@@ -34,9 +36,37 @@ export function ArtworkDetailPage() {
     .filter(a => a.id !== artwork.id && a.category === artwork.category)
     .slice(0, 3);
 
+  const variations = artwork.variations ?? [];
+  const propertyNames = Array.from(new Set(variations.flatMap(v => v.options.map(o => o.name))));
+  const hasVariations = variations.length > 0;
+  const chosen: ArtworkVariation | undefined = hasVariations && propertyNames.every(n => selected[n])
+    ? variations.find(v => propertyNames.every(n => v.options.find(o => o.name === n)?.value === selected[n]))
+    : undefined;
+  const displayPrice = chosen ? chosen.price : artwork.price;
+  const stock = chosen ? chosen.quantity : artwork.quantity;
+  const hasVideo = Boolean(artwork.video_url);
+  const videoIndex = artwork.images.length;
+  const showingVideo = hasVideo && activeImage === videoIndex;
+  const extras = artwork.etsy_data;
+  const processing = extras?.processing_min != null && extras?.processing_max != null
+    ? `${extras.processing_min}–${extras.processing_max} ${extras.processing_unit ?? 'business days'}`.replace(/(\d+)–\1/, '$1')
+    : extras?.shipping?.min_processing_days != null
+      ? `${extras.shipping.min_processing_days}–${extras.shipping.max_processing_days} business days`
+      : null;
+
+  function optionAvailable(name: string, value: string) {
+    return variations.some(v =>
+      v.quantity > 0 &&
+      v.options.some(o => o.name === name && o.value === value) &&
+      Object.entries(selected).every(([n, val]) => n === name || v.options.find(o => o.name === n)?.value === val)
+    );
+  }
+
   function handleAddToCart() {
     if (artwork!.availability !== 'available') return;
-    addItem(artwork!);
+    if (hasVariations && !chosen) { toast.error(`Please select ${propertyNames.join(' and ')}.`); return; }
+    if (chosen && chosen.quantity < 1) { toast.error('That option is sold out.'); return; }
+    addItem(artwork!, chosen);
     toast.success(`"${artwork!.title}" added to your collection.`);
   }
 
@@ -62,36 +92,63 @@ export function ArtworkDetailPage() {
             <FadeIn direction="left">
               <div className="space-y-3">
                 {/* Main image */}
-                <div
-                  className="relative aspect-[3/4] overflow-hidden bg-cream-100 cursor-zoom-in group"
-                  onClick={() => setLightboxOpen(true)}
-                >
-                  <img
-                    src={artwork.images[activeImage]}
-                    alt={artwork.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-art-white/90 p-2">
-                      <ZoomIn size={16} className="text-art-charcoal" strokeWidth={1.5} />
+                {showingVideo ? (
+                  <div className="relative aspect-[3/4] overflow-hidden bg-black">
+                    <video
+                      key={artwork.video_url}
+                      src={artwork.video_url}
+                      poster={artwork.images[0]}
+                      controls
+                      playsInline
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="relative aspect-[3/4] overflow-hidden bg-cream-100 cursor-zoom-in group"
+                    onClick={() => setLightboxOpen(true)}
+                  >
+                    <img
+                      src={artwork.images[activeImage]}
+                      alt={artwork.title}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="bg-art-white/90 p-2">
+                        <ZoomIn size={16} className="text-art-charcoal" strokeWidth={1.5} />
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Thumbnails */}
-                {artwork.images.length > 1 && (
-                  <div className="flex gap-3">
+                {(artwork.images.length > 1 || hasVideo) && (
+                  <div className="flex gap-3 flex-wrap">
                     {artwork.images.map((img, i) => (
                       <button
                         key={i}
                         onClick={() => setActiveImage(i)}
-                        className={`flex-1 aspect-[3/2] overflow-hidden border-2 transition-colors ${
+                        className={`flex-1 min-w-[60px] aspect-[3/2] overflow-hidden border-2 transition-colors ${
                           activeImage === i ? 'border-art-charcoal' : 'border-transparent'
                         }`}
                       >
                         <img src={img} alt="" className="w-full h-full object-cover" />
                       </button>
                     ))}
+                    {hasVideo && (
+                      <button
+                        onClick={() => setActiveImage(videoIndex)}
+                        aria-label="Play video"
+                        className={`relative flex-1 min-w-[60px] aspect-[3/2] overflow-hidden border-2 transition-colors bg-art-charcoal ${
+                          showingVideo ? 'border-art-charcoal' : 'border-transparent'
+                        }`}
+                      >
+                        <img src={artwork.images[0]} alt="" className="w-full h-full object-cover opacity-60" />
+                        <span className="absolute inset-0 flex items-center justify-center text-white">
+                          <Play size={20} strokeWidth={1.5} fill="currentColor" />
+                        </span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -102,7 +159,7 @@ export function ArtworkDetailPage() {
               <div className="space-y-6 md:space-y-8 md:sticky md:top-32 md:self-start">
                 {/* Category */}
                 <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
-                  {artwork.category.replace('-', ' ')} · {artwork.year}
+                  {[artwork.category.replace('-', ' '), artwork.year].filter(Boolean).join(' · ')}
                 </p>
 
                 {/* Title */}
@@ -114,7 +171,7 @@ export function ArtworkDetailPage() {
                 <div className="flex items-center gap-4">
                   {artwork.availability === 'available' ? (
                     <p className="font-sans text-2xl text-art-charcoal">
-                      {formatPrice(artwork.price)}
+                      {hasVariations && !chosen && variations.length > 1 ? 'From ' : ''}{formatPrice(displayPrice)}
                     </p>
                   ) : (
                     <p className="font-sans text-lg text-art-muted uppercase tracking-widest text-sm">
@@ -137,13 +194,60 @@ export function ArtworkDetailPage() {
                   {artwork.description}
                 </p>
 
+                {/* Variations */}
+                {hasVariations && artwork.availability === 'available' && (
+                  <div className="space-y-5 border-t border-art-pale pt-6">
+                    {propertyNames.map(name => {
+                      const values = Array.from(new Set(
+                        variations.map(v => v.options.find(o => o.name === name)?.value).filter(Boolean) as string[]
+                      ));
+                      return (
+                        <div key={name}>
+                          <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-2">{name}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {values.map(value => {
+                              const active = selected[name] === value;
+                              const available = optionAvailable(name, value);
+                              return (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  onClick={() => setSelected(prev => ({ ...prev, [name]: active ? '' : value }))}
+                                  className={`font-sans text-xs px-4 py-2 border transition-colors ${
+                                    active
+                                      ? 'border-art-charcoal bg-art-charcoal text-art-white'
+                                      : available
+                                        ? 'border-art-light text-art-charcoal hover:border-art-charcoal'
+                                        : 'border-art-pale text-art-light line-through'
+                                  }`}
+                                >
+                                  {value}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {artwork.availability === 'available' && stock != null && (!hasVariations || chosen) && (
+                  <p className="font-sans text-xs text-art-muted">
+                    {stock < 1 ? 'Sold out' : stock === 1 ? 'Only 1 available' : stock <= 5 ? `Only ${stock} available` : 'In stock'}
+                  </p>
+                )}
+
                 {/* Specs */}
                 <div className="space-y-3 border-t border-art-pale pt-6">
                   {[
                     { label: 'Materials', value: artwork.materials },
                     { label: 'Dimensions', value: artwork.dimensions },
                     artwork.framing && { label: 'Framing', value: artwork.framing },
-                  ].filter(Boolean).map((spec: any) => (
+                    extras?.who_made && { label: 'Made by', value: extras.who_made.replace(/_/g, ' ') },
+                    processing && { label: 'Processing time', value: processing },
+                    extras?.shipping?.origin_country_iso && { label: 'Ships from', value: extras.shipping.origin_country_iso },
+                  ].filter((spec: any) => spec && spec.value).map((spec: any) => (
                     <div key={spec.label} className="flex justify-between gap-4 flex-wrap">
                       <span className="font-sans text-[10px] tracking-widest uppercase text-art-muted shrink-0">
                         {spec.label}
@@ -154,6 +258,16 @@ export function ArtworkDetailPage() {
                     </div>
                   ))}
                 </div>
+
+                {artwork.tags && artwork.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {artwork.tags.map(tag => (
+                      <span key={tag} className="font-sans text-[10px] tracking-wide text-art-muted border border-art-pale px-2.5 py-1">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* CTA */}
                 <div className="pt-2">
