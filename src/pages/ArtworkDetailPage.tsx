@@ -133,7 +133,7 @@ export function ArtworkDetailPage() {
                   </p>
                 )}
 
-                <p className="font-sans text-sm text-art-muted leading-relaxed">
+                <p className="font-sans text-sm text-art-muted leading-relaxed whitespace-pre-line">
                   {artwork.description}
                 </p>
 

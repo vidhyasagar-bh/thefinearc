@@ -12,6 +12,10 @@ export interface EtsyListing {
   quantity: number;
   url: string;
   images: EtsyImage[];
+  item_length?: number | null;
+  item_width?: number | null;
+  item_height?: number | null;
+  item_dimensions_unit?: string | null;
 }
 
 function decodeHtml(s: string): string {
@@ -50,6 +54,7 @@ export async function fetchEtsyListings(apiKey: string, shopId: string): Promise
   if (!res.ok) throw new Error(`Etsy ${res.status}: ${body}`);
   const data = JSON.parse(body);
   console.log('[Etsy] Listing count:', data.results?.length ?? 0);
+  console.log('[Etsy] Sample listing fields:', JSON.stringify((data.results ?? [])[0] ?? {}).slice(0, 1500));
   const listings = ((data.results ?? []) as EtsyListing[]).map(l => ({
     ...l,
     title: decodeHtml(l.title ?? ''),
@@ -64,6 +69,26 @@ export async function fetchEtsyListings(apiKey: string, shopId: string): Promise
   return listings;
 }
 
+function pickDimensions(l: EtsyListing): string {
+  const unit = l.item_dimensions_unit ?? '';
+  const parts = [l.item_length, l.item_width, l.item_height].filter(n => typeof n === 'number' && n > 0);
+  if (parts.length >= 2) return `${parts.join(' × ')}${unit ? ' ' + unit : ''}`;
+
+  const text = `${l.title}\n${l.description}`;
+  const labelled = text.match(/(?:size|dimensions?)\s*[:\-–]\s*([^\n]{2,80})/i);
+  if (labelled) return labelled[1].trim();
+  const xBy = text.match(/\d+(?:\.\d+)?\s*(?:"|”|in(?:ch(?:es)?)?|cm)?\s*[x×]\s*\d+(?:\.\d+)?\s*(?:"|”|in(?:ch(?:es)?)?|cm)?/i);
+  if (xBy) return xBy[0].trim();
+  const single = l.title.match(/\d+(?:\.\d+)?\s*(?:"|”|inch(?:es)?|cm)/i);
+  return single ? single[0].trim() : '';
+}
+
+function pickMaterials(l: EtsyListing): string {
+  if (l.materials && l.materials.length > 0) return l.materials.join(', ');
+  const m = l.description.match(/materials?(?:\s+used)?\s*[:\-–]\s*([^\n]{2,120})/i);
+  return m ? m[1].trim() : '';
+}
+
 export function etsyListingToPayload(listing: EtsyListing) {
   const price = listing.price.amount / listing.price.divisor;
   const images = (listing.images ?? []).map(img => img.url_fullxfull || img.url_570xN).filter(Boolean);
@@ -72,8 +97,8 @@ export function etsyListingToPayload(listing: EtsyListing) {
     description: listing.description.slice(0, 3000),
     story: null as null,
     price,
-    dimensions: '',
-    materials: (listing.materials ?? []).join(', '),
+    dimensions: pickDimensions(listing),
+    materials: pickMaterials(listing),
     category: 'painting' as const,
     images,
     video_url: null as null,
