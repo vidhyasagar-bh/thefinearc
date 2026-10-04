@@ -1,6 +1,7 @@
 import type { ArtworkVariation, EtsyExtras } from '../types';
 
 export interface EtsyImage {
+  listing_image_id?: number;
   url_fullxfull: string;
   url_570xN: string;
 }
@@ -41,6 +42,7 @@ export interface EtsyListing {
   images: EtsyImage[];
   videos?: EtsyVideo[];
   inventory?: EtsyInventory;
+  variationImages?: { property_id: number; value_id: number | null; image_id: number }[];
   shipping_profile?: Record<string, any> | null;
   item_length?: number | null;
   item_width?: number | null;
@@ -57,7 +59,7 @@ function decodeHtml(s: string): string {
   return t.value;
 }
 
-async function fetchListingResource<T>(apiKey: string, shopId: string, listingId: number, resource: 'images' | 'videos' | 'inventory'): Promise<T | null> {
+async function fetchListingResource<T>(apiKey: string, shopId: string, listingId: number, resource: 'images' | 'videos' | 'inventory' | 'variation-images'): Promise<T | null> {
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
       const res = await fetch(
@@ -105,6 +107,11 @@ export async function fetchEtsyListings(apiKey: string, shopId: string): Promise
       const r = await fetchListingResource<EtsyInventory>(apiKey, shopId, l.listing_id, 'inventory');
       l.inventory = r ?? { products: [] };
     }
+    const hasOptions = (l.inventory.products ?? []).some(p => (p.property_values?.length ?? 0) > 0);
+    if (hasOptions) {
+      const r = await fetchListingResource<{ results: { property_id: number; value_id: number | null; image_id: number }[] }>(apiKey, shopId, l.listing_id, 'variation-images');
+      l.variationImages = r?.results ?? [];
+    }
     console.log('[Etsy] Listing', l.listing_id, l.title, '— images:', l.images.length, 'videos:', l.videos.length, 'products:', l.inventory.products?.length ?? 0);
   }
   return listings;
@@ -150,6 +157,14 @@ function buildVariations(listing: EtsyListing): ArtworkVariation[] {
       if (products.length < 2) return;
       options.push({ name: 'Option', value: p.sku || `Option ${index + 1}` });
     }
+    let image: string | undefined;
+    for (const pv of p.property_values ?? []) {
+      const match = (listing.variationImages ?? []).find(vi =>
+        vi.property_id === pv.property_id && (vi.value_id == null || (pv.value_ids ?? []).includes(vi.value_id))
+      );
+      const img = match && (listing.images ?? []).find(i => i.listing_image_id === match.image_id);
+      if (img) { image = img.url_fullxfull || img.url_570xN; break; }
+    }
     const live = (p.offerings ?? []).filter(o => !o.is_deleted);
     const offering = live.find(o => o.is_enabled) ?? live[0];
     if (!offering) return;
@@ -159,6 +174,7 @@ function buildVariations(listing: EtsyListing): ArtworkVariation[] {
       options,
       price: money(offering.price) ?? money(listing.price) ?? 0,
       quantity: offering.is_enabled ? (offering.quantity ?? 0) : 0,
+      image,
     });
   });
   if (products.length > 1 && variations.length === 0) {

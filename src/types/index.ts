@@ -28,6 +28,7 @@ export interface ArtworkVariation {
   options: { name: string; value: string }[];
   price: number;
   quantity: number;
+  image?: string;
 }
 
 export interface EtsyExtras {

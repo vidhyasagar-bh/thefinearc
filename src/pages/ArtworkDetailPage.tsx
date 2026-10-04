@@ -54,6 +54,15 @@ export function ArtworkDetailPage() {
       ? `${extras.shipping.min_processing_days}–${extras.shipping.max_processing_days} business days`
       : null;
 
+  function optionImage(name: string, value: string) {
+    return variations.find(v => v.image && v.options.some(o => o.name === name && o.value === value))?.image;
+  }
+
+  function showImage(url?: string) {
+    const index = url ? artwork!.images.indexOf(url) : -1;
+    if (index >= 0) setActiveImage(index);
+  }
+
   function optionAvailable(name: string, value: string) {
     return variations.some(v =>
       v.quantity > 0 &&
@@ -212,8 +221,8 @@ export function ArtworkDetailPage() {
                                 <button
                                   key={value}
                                   type="button"
-                                  onClick={() => setSelected(prev => ({ ...prev, [name]: active ? '' : value }))}
-                                  className={`font-sans text-xs px-4 py-2 border transition-colors ${
+                                  onClick={() => { setSelected(prev => ({ ...prev, [name]: active ? '' : value })); if (!active) showImage(optionImage(name, value)); }}
+                                  className={`font-sans text-xs border transition-colors flex items-center gap-2 ${optionImage(name, value) ? 'p-1 pr-3' : 'px-4 py-2'} ${
                                     active
                                       ? 'border-art-charcoal bg-art-charcoal text-art-white'
                                       : available
@@ -221,6 +230,9 @@ export function ArtworkDetailPage() {
                                         : 'border-art-pale text-art-light line-through'
                                   }`}
                                 >
+                                  {optionImage(name, value) && (
+                                    <img src={optionImage(name, value)} alt="" className="w-9 h-9 object-cover" />
+                                  )}
                                   {value}
                                 </button>
                               );

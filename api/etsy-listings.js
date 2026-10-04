@@ -1,4 +1,4 @@
-const RESOURCES = new Set(['images', 'videos', 'inventory']);
+const RESOURCES = new Set(['images', 'videos', 'inventory', 'variation-images']);
 
 export default async function handler(req, res) {
   const apiKey = req.headers['x-etsy-key'] || process.env.ETSY_API_KEY;
@@ -21,7 +21,9 @@ export default async function handler(req, res) {
     if (!RESOURCES.has(String(r))) {
       return res.status(400).json({ error: 'Unsupported resource' });
     }
-    url = `https://openapi.etsy.com/v3/application/listings/${listingId}/${r}`;
+    url = r === 'variation-images'
+      ? `https://openapi.etsy.com/v3/application/shops/${shopId}/listings/${listingId}/variation-images`
+      : `https://openapi.etsy.com/v3/application/listings/${listingId}/${r}`;
   } else {
     url = `https://openapi.etsy.com/v3/application/shops/${shopId}/listings/active?limit=100&includes=Images,Videos,Inventory,Shipping`;
   }
