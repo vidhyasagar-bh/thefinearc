@@ -9,7 +9,13 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Shop ID must be numeric' });
   }
 
-  const url = `https://openapi.etsy.com/v3/application/shops/${shopId}/listings/active?limit=100&includes=Images`;
+  const listingId = req.query.listingId;
+  if (listingId && !/^\d+$/.test(String(listingId))) {
+    return res.status(400).json({ error: 'Listing ID must be numeric' });
+  }
+  const url = listingId
+    ? `https://openapi.etsy.com/v3/application/listings/${listingId}/images`
+    : `https://openapi.etsy.com/v3/application/shops/${shopId}/listings/active?limit=100&includes=Images`;
   console.log('[etsy-listings] GET', url);
 
   try {

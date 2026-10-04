@@ -14,6 +14,26 @@ export interface EtsyListing {
   images: EtsyImage[];
 }
 
+function decodeHtml(s: string): string {
+  const t = document.createElement('textarea');
+  t.innerHTML = s;
+  return t.value;
+}
+
+async function fetchListingImages(apiKey: string, shopId: string, listingId: number): Promise<EtsyImage[]> {
+  try {
+    const res = await fetch(`/api/etsy-listings?shopId=${encodeURIComponent(shopId)}&listingId=${listingId}`, {
+      method: 'GET', headers: { 'x-etsy-key': apiKey },
+    });
+    if (!res.ok) { console.warn('[Etsy] Images fetch failed for', listingId, res.status); return []; }
+    const data = await res.json();
+    return (data.results ?? []) as EtsyImage[];
+  } catch (err) {
+    console.warn('[Etsy] Images fetch error for', listingId, err);
+    return [];
+  }
+}
+
 export async function fetchEtsyListings(apiKey: string, shopId: string): Promise<EtsyListing[]> {
   const url = `/api/etsy-listings?shopId=${encodeURIComponent(shopId)}`;
   console.log('[Etsy] Fetching listings via proxy:', url);
@@ -24,7 +44,18 @@ export async function fetchEtsyListings(apiKey: string, shopId: string): Promise
   if (!res.ok) throw new Error(`Etsy ${res.status}: ${body}`);
   const data = JSON.parse(body);
   console.log('[Etsy] Listing count:', data.results?.length ?? 0);
-  return (data.results ?? []) as EtsyListing[];
+  const listings = ((data.results ?? []) as EtsyListing[]).map(l => ({
+    ...l,
+    title: decodeHtml(l.title ?? ''),
+    description: decodeHtml(l.description ?? ''),
+  }));
+  await Promise.all(listings.map(async l => {
+    if (!l.images || l.images.length === 0) {
+      l.images = await fetchListingImages(apiKey, shopId, l.listing_id);
+      console.log('[Etsy] Fetched images separately for', l.listing_id, l.images.length);
+    }
+  }));
+  return listings;
 }
 
 export function etsyListingToPayload(listing: EtsyListing) {
