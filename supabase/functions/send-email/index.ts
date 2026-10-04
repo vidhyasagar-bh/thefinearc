@@ -34,7 +34,7 @@ function wrap(content: string): string {
   <div style="border-top:1px solid #f0ece4;margin-top:44px;padding-top:24px;">
     <p style="font-family:system-ui,-apple-system,sans-serif;font-size:11px;color:#b0a898;margin:0 0 4px 0;">The Fine Arc</p>
     <p style="font-family:system-ui,-apple-system,sans-serif;font-size:11px;color:#b0a898;margin:0;">
-      <a href="mailto:hello@thefinearc.com" style="color:#b0a898;text-decoration:none;">hello@thefinearc.com</a>
+      <a href="mailto:thefinearc@gmail.com" style="color:#b0a898;text-decoration:none;">thefinearc@gmail.com</a>
     </p>
   </div>
 </td></tr>
@@ -75,7 +75,7 @@ function commissionInquiryCustomer(name: string): string {
     divider() +
     p('In the meantime, you are welcome to browse the current collection for reference or inspiration.') +
     `<p style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;margin:20px 0 0 0;">
-      <a href="https://thefinearc.com/gallery" style="color:#2c2c2c;text-decoration:underline;text-underline-offset:3px;">View the gallery →</a>
+      <a href="https://thefinearcbyleela.com/gallery" style="color:#2c2c2c;text-decoration:underline;text-underline-offset:3px;">View the gallery →</a>
     </p>`
   );
 }
@@ -114,7 +114,7 @@ function commissionDeclined(name: string): string {
     p('I hope you will continue to follow the work, and please do enquire again in the future.') +
     divider() +
     `<p style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;margin:0;">
-      <a href="https://thefinearc.com/gallery" style="color:#2c2c2c;text-decoration:underline;text-underline-offset:3px;">Browse the current collection →</a>
+      <a href="https://thefinearcbyleela.com/gallery" style="color:#2c2c2c;text-decoration:underline;text-underline-offset:3px;">Browse the current collection →</a>
     </p>`
   );
 }
@@ -182,11 +182,12 @@ serve(async (req: Request) => {
   try {
     const { type, data } = (await req.json()) as EmailRequest;
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    const artistEmail = Deno.env.get('ARTIST_EMAIL') || 'hello@thefinearc.com';
-    const fromEmail = Deno.env.get('FROM_EMAIL') || 'noreply@thefinearc.com';
+    const artistEmail = Deno.env.get('ARTIST_EMAIL') || 'thefinearc@gmail.com';
+    const fromEmail = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev';
 
     if (!resendApiKey) {
       // Gracefully no-op when Resend isn't configured
+      console.warn('[send-email] RESEND_API_KEY is not set — no email sent');
       return new Response(JSON.stringify({ ok: true, note: 'RESEND_API_KEY not set' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -215,18 +216,29 @@ serve(async (req: Request) => {
       emails.push({ to: artistEmail, subject: `New order from ${name}`, html: orderNotificationArtist(data) });
     }
 
-    await Promise.all(
-      emails.map(({ to, subject, html }) =>
-        fetch('https://api.resend.com/emails', {
+    const results = await Promise.all(
+      emails.map(async ({ to, subject, html }) => {
+        const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${resendApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ from: `The Fine Arc <${fromEmail}>`, to, subject, html }),
-        })
-      )
+        });
+        const body = await res.text();
+        console.log('[send-email]', type, '->', to, res.status, body.slice(0, 300));
+        return { to, ok: res.ok, status: res.status, body };
+      })
     );
+
+    const failed = results.filter(r => !r.ok);
+    if (failed.length > 0) {
+      return new Response(JSON.stringify({ ok: false, failed }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

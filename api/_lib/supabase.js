@@ -28,11 +28,14 @@ export async function sb(path, init = {}) {
 
 export async function sendOrderEmail(data) {
   try {
-    await fetch(`${url()}/functions/v1/send-email`, {
+    const res = await fetch(`${url()}/functions/v1/send-email`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${key()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'order_confirmation', data }),
     });
+    const text = await res.text();
+    if (res.ok) console.log('[email] send-email responded', res.status, text.slice(0, 300));
+    else console.error('[email] send-email FAILED', res.status, text.slice(0, 500));
   } catch (err) {
     console.error('[email] order confirmation failed', err);
   }
