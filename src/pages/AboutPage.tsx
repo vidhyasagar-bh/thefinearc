@@ -30,9 +30,9 @@ export function AboutPage() {
             <FadeIn direction="left">
               <div className="aspect-[4/3] sm:aspect-[3/4] overflow-hidden bg-cream-100 md:sticky md:top-32">
                 <img
-                  src="https://picsum.photos/seed/artist-portrait/800/1000"
-                  alt="Artist portrait"
-                  className="w-full h-full object-cover"
+                  src="/artist.jpg"
+                  alt="The artist with her hand-painted mandala artworks"
+                  className="w-full h-full object-cover object-[center_30%]"
                 />
               </div>
             </FadeIn>
