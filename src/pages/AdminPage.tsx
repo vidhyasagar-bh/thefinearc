@@ -14,7 +14,7 @@ import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { mockArtworks } from '../lib/mockData';
-import { fetchEtsyListings, etsyListingToPayload, etsyNewListingDefaults, type EtsyListing } from '../lib/etsy';
+import { fetchEtsyListings, etsyListingToPayload, etsyNewListingDefaults, etsyVariationSummary, type EtsyListing } from '../lib/etsy';
 
 type AdminTab = 'artworks' | 'orders' | 'commissions' | 'analytics';
 
@@ -346,6 +346,10 @@ function EtsyImportModal({
                       </p>
                       <p className="font-serif text-sm text-art-warm">
                         {listing.price.currency_code} {price.toFixed(2)}
+                      </p>
+                      <p className="font-sans text-[10px] text-art-muted">
+                        {etsyVariationSummary(listing) || 'No variations'}
+                        {listing.videos && listing.videos.length > 0 ? ' · video' : ''}
                       </p>
                       <button
                         onClick={() => handleImport(listing)}

@@ -18,7 +18,13 @@ interface EtsyProduct {
   sku?: string;
   is_deleted?: boolean;
   offerings?: { offering_id: number; quantity: number; is_enabled: boolean; is_deleted?: boolean; price: EtsyMoney }[];
-  property_values?: { property_name: string; values: string[] }[];
+  property_values?: {
+    property_id?: number;
+    property_name?: string | null;
+    scale_name?: string | null;
+    value_ids?: number[];
+    values?: string[];
+  }[];
 }
 
 interface EtsyInventory { products?: EtsyProduct[] }
@@ -129,20 +135,34 @@ const money = (m?: EtsyMoney | null) => (m && m.divisor ? m.amount / m.divisor :
 function buildVariations(listing: EtsyListing): ArtworkVariation[] {
   const products = (listing.inventory?.products ?? []).filter(p => !p.is_deleted);
   const variations: ArtworkVariation[] = [];
-  for (const p of products) {
+  products.forEach((p, index) => {
     const options = (p.property_values ?? [])
-      .filter(pv => pv.values && pv.values.length > 0)
-      .map(pv => ({ name: decodeHtml(pv.property_name), value: decodeHtml(pv.values.join(', ')) }));
-    if (options.length === 0) continue;
-    const offering = (p.offerings ?? []).find(o => o.is_enabled && !o.is_deleted);
-    if (!offering) continue;
+      .map((pv, i) => {
+        const values = (pv.values && pv.values.length > 0 ? pv.values : (pv.value_ids ?? []).map(String));
+        return {
+          name: decodeHtml(pv.property_name || pv.scale_name || `Option ${i + 1}`),
+          value: decodeHtml(values.join(', ')),
+        };
+      })
+      .filter(o => o.value);
+    // Several products with no property values: still offer them, labelled by SKU
+    if (options.length === 0) {
+      if (products.length < 2) return;
+      options.push({ name: 'Option', value: p.sku || `Option ${index + 1}` });
+    }
+    const live = (p.offerings ?? []).filter(o => !o.is_deleted);
+    const offering = live.find(o => o.is_enabled) ?? live[0];
+    if (!offering) return;
     variations.push({
       id: String(p.product_id),
       sku: p.sku || undefined,
       options,
-      price: money(offering.price) ?? 0,
-      quantity: offering.quantity ?? 0,
+      price: money(offering.price) ?? money(listing.price) ?? 0,
+      quantity: offering.is_enabled ? (offering.quantity ?? 0) : 0,
     });
+  });
+  if (products.length > 1 && variations.length === 0) {
+    console.warn('[Etsy] Could not parse variations for', listing.listing_id, JSON.stringify(listing.inventory).slice(0, 1500));
   }
   return variations;
 }
@@ -180,6 +200,13 @@ function buildExtras(l: EtsyListing): EtsyExtras {
       })),
     } : null,
   };
+}
+
+export function etsyVariationSummary(listing: EtsyListing): string {
+  const v = buildVariations(listing);
+  if (v.length === 0) return '';
+  const names = Array.from(new Set(v.flatMap(x => x.options.map(o => o.name))));
+  return `${v.length} variation${v.length > 1 ? 's' : ''} (${names.join(', ')})`;
 }
 
 export function etsyListingToPayload(listing: EtsyListing) {
