@@ -5,22 +5,22 @@ export function AboutPage() {
   return (
     <Layout>
       {/* Hero */}
-      <div className="pt-20 md:pt-20 bg-cream-100">
-        <div className="md:grid md:grid-cols-2 md:h-[calc(100vh-5rem)] md:min-h-[560px]">
-          <div className="relative aspect-[5/6] md:aspect-auto md:h-full overflow-hidden md:order-2">
+      <div className="pt-20 bg-cream-100">
+        <div className="lg:grid lg:grid-cols-[1fr_auto] lg:h-[calc(100vh-5rem)]">
+          {/* Exact photo proportions (1663×2000) so nothing is cropped */}
+          <div className="relative aspect-[1663/2000] lg:aspect-auto lg:h-full lg:w-[calc((100vh-5rem)*0.8315)] overflow-hidden lg:order-2">
             <img
               src="/artist.jpg"
               alt="The artist with her hand-painted mandala artworks"
-              className="w-full h-full object-cover object-top"
+              className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/30 md:hidden" />
           </div>
-          <div className="flex items-center px-6 md:px-12 lg:px-20 py-12 md:py-0 md:order-1">
+          <div className="flex items-center px-6 lg:px-12 xl:px-20 py-12 lg:py-0 lg:order-1">
             <FadeIn>
               <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-5">
                 The Fine Arc
               </p>
-              <h1 className="font-serif text-5xl md:text-6xl lg:text-7xl font-light text-art-charcoal leading-tight">
+              <h1 className="font-serif text-5xl lg:text-6xl xl:text-7xl font-light text-art-charcoal leading-tight">
                 The Artist
               </h1>
             </FadeIn>
