@@ -2,117 +2,43 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { FadeIn } from '../components/ui/FadeIn';
-import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { useCartStore, cartKey, unitPrice } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
-import { supabase, supabaseConfigured } from '../lib/supabase';
-import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
-import { CheckCircle } from 'lucide-react';
-
-interface CheckoutForm {
-  email: string;
-  name: string;
-  address: string;
-  city: string;
-  postal_code: string;
-  country: string;
-}
+import { Lock } from 'lucide-react';
 
 export function CheckoutPage() {
   const navigate = useNavigate();
-  const { items, total, clearCart } = useCartStore();
+  const { items, total } = useCartStore();
   const cartTotal = total();
-
-  const [form, setForm] = useState<CheckoutForm>({
-    email: '', name: '', address: '', city: '', postal_code: '', country: 'GB',
-  });
   const [processing, setProcessing] = useState(false);
-  const [completed, setCompleted] = useState(false);
 
-  function update(field: keyof CheckoutForm, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }));
-  }
-
-  async function saveOrder() {
-    if (!supabaseConfigured) return;
-    try {
-      await supabase.from('orders').insert({
-        customer_name: form.name,
-        customer_email: form.email,
-        customer_address: {
-          line1: form.address,
-          city: form.city,
-          postal_code: form.postal_code,
-          country: form.country,
-        },
-        items: items.map((item) => ({
-          artwork_id: item.artwork.id,
-          artwork_title: item.variation
-            ? `${item.artwork.title} (${item.variation.options.map(o => `${o.name}: ${o.value}`).join(', ')})`
-            : item.artwork.title,
-          quantity: item.quantity,
-          price: unitPrice(item),
-        })),
-        total: cartTotal,
-        payment_status: 'pending',
-      });
-    } catch {
-      // Non-fatal — order still completes in demo mode
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (items.length === 0) {
-      navigate('/cart');
-      return;
-    }
-
+  async function handlePay() {
+    if (items.length === 0) { navigate('/cart'); return; }
     setProcessing(true);
-
-    const emailData = {
-      name: form.name,
-      email: form.email,
-      customer_address: { line1: form.address, city: form.city, postal_code: form.postal_code, country: form.country },
-      items: items.map((item) => ({
-        artwork_title: item.variation
-          ? `${item.artwork.title} (${item.variation.options.map(o => `${o.name}: ${o.value}`).join(', ')})`
-          : item.artwork.title,
-        quantity: item.quantity,
-        price: unitPrice(item),
-      })),
-      total: cartTotal,
-    };
-
-    const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-    if (!stripeKey) {
-      // Demo mode — save order then confirm
-      await saveOrder();
-      await sendEmail('order_confirmation', emailData);
-      await new Promise(r => setTimeout(r, 1200));
-      setProcessing(false);
-      setCompleted(true);
-      clearCart();
-      return;
-    }
-
     try {
-      toast.error('Stripe backend not yet configured. Running in demo mode.');
-      await saveOrder();
-      await sendEmail('order_confirmation', emailData);
-      await new Promise(r => setTimeout(r, 1200));
-      setCompleted(true);
-      clearCart();
-    } catch {
-      toast.error('Something went wrong. Please try again.');
-    } finally {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: items.map(i => ({
+            artworkId: i.artwork.id,
+            variationId: i.variation?.id ?? null,
+            quantity: i.quantity,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout.');
+      window.location.assign(data.url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setProcessing(false);
     }
   }
 
-  if (items.length === 0 && !completed) {
+  if (items.length === 0) {
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center">
@@ -120,30 +46,6 @@ export function CheckoutPage() {
             <p className="font-serif text-2xl font-light text-art-muted">Your cart is empty.</p>
             <Link to="/gallery"><Button variant="secondary">Browse Gallery</Button></Link>
           </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (completed) {
-    return (
-      <Layout>
-        <div className="min-h-screen flex items-center justify-center px-6">
-          <FadeIn>
-            <div className="max-w-md mx-auto text-center space-y-7">
-              <CheckCircle size={40} strokeWidth={1} className="text-art-warm mx-auto" />
-              <h1 className="font-serif text-4xl md:text-5xl font-light text-art-charcoal">
-                Order confirmed.
-              </h1>
-              <p className="font-sans text-sm text-art-muted leading-relaxed">
-                Thank you for collecting. We will be in touch at {form.email} to arrange delivery. Your work will be carefully packed and dispatched within 5–7 working days.
-              </p>
-              <div className="w-8 h-px bg-art-light mx-auto" />
-              <Link to="/gallery">
-                <Button variant="secondary" size="lg">Continue Browsing</Button>
-              </Link>
-            </div>
-          </FadeIn>
         </div>
       </Layout>
     );
@@ -160,88 +62,26 @@ export function CheckoutPage() {
           </FadeIn>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 lg:gap-16">
-            {/* Form */}
             <div className="md:col-span-2 order-2 md:order-1">
-              <form onSubmit={handleSubmit} className="space-y-10 md:space-y-12">
-                <FadeIn>
-                  <div className="space-y-6">
-                    <h2 className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
-                      Contact
-                    </h2>
-                    <Input
-                      label="Email address *"
-                      type="email"
-                      value={form.email}
-                      onChange={e => update('email', e.target.value)}
-                      required
-                    />
-                  </div>
-                </FadeIn>
-
-                <FadeIn delay={0.1}>
-                  <div className="space-y-6">
-                    <h2 className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
-                      Shipping Address
-                    </h2>
-                    <Input
-                      label="Full name *"
-                      value={form.name}
-                      onChange={e => update('name', e.target.value)}
-                      required
-                    />
-                    <Input
-                      label="Address *"
-                      value={form.address}
-                      onChange={e => update('address', e.target.value)}
-                      required
-                    />
-                    <div className="grid grid-cols-2 gap-5">
-                      <Input
-                        label="City *"
-                        value={form.city}
-                        onChange={e => update('city', e.target.value)}
-                        required
-                      />
-                      <Input
-                        label="Postal code *"
-                        value={form.postal_code}
-                        onChange={e => update('postal_code', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <Input
-                      label="Country *"
-                      value={form.country}
-                      onChange={e => update('country', e.target.value)}
-                      required
-                    />
-                  </div>
-                </FadeIn>
-
-                <FadeIn delay={0.15}>
+              <FadeIn>
+                <div className="space-y-8">
                   <div className="space-y-4">
-                    <h2 className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
-                      Payment
-                    </h2>
-                    <div className="border border-art-pale p-5">
-                      <p className="font-sans text-sm text-art-muted">
-                        {import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
-                          ? 'Secure payment via Stripe'
-                          : 'Demo mode — no real payment will be processed'}
+                    <h2 className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Payment</h2>
+                    <div className="border border-art-pale p-5 space-y-3">
+                      <p className="font-sans text-sm text-art-charcoal">
+                        You will enter your shipping address and card details on Stripe's secure payment page.
+                      </p>
+                      <p className="font-sans text-xs text-art-muted leading-relaxed">
+                        Sales tax, where it applies, is calculated automatically from your shipping address and shown before you pay.
                       </p>
                     </div>
                   </div>
-                </FadeIn>
-
-                <Button
-                  type="submit"
-                  size="lg"
-                  disabled={processing}
-                  className="w-full"
-                >
-                  {processing ? 'Processing...' : `Place Order · ${formatPrice(cartTotal)}`}
-                </Button>
-              </form>
+                  <Button size="lg" onClick={handlePay} disabled={processing} className="w-full">
+                    <Lock size={14} strokeWidth={1.5} />
+                    {processing ? 'Redirecting…' : `Continue to payment · ${formatPrice(cartTotal)}`}
+                  </Button>
+                </div>
+              </FadeIn>
             </div>
 
             {/* Summary */}

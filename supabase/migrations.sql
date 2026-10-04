@@ -48,3 +48,11 @@ ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS etsy_url text;
 ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS etsy_listing_id bigint;
 ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS etsy_data jsonb;
 CREATE UNIQUE INDEX IF NOT EXISTS artworks_etsy_listing_id_key ON public.artworks (etsy_listing_id) WHERE etsy_listing_id IS NOT NULL;
+
+-- 7. Stripe: store Checkout session + tax breakdown on orders
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS stripe_checkout_session_id text;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS subtotal numeric(10,2);
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tax_amount numeric(10,2);
+CREATE UNIQUE INDEX IF NOT EXISTS orders_stripe_session_key ON public.orders (stripe_checkout_session_id) WHERE stripe_checkout_session_id IS NOT NULL;
+-- Orders are now created server-side by the Stripe webhook (service role). Remove public inserts:
+DROP POLICY IF EXISTS "Public can insert orders" ON public.orders;
