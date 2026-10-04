@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
-import { sb, hasServiceRole, sendOrderEmail } from './_lib/supabase.js';
+import { sb, hasServiceRole } from './_lib/supabase.js';
+import { deliver } from './_lib/mailer.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -80,13 +81,16 @@ async function fulfill(stripe, sessionId) {
     }
   }
 
-  await sendOrderEmail({
+  const results = await deliver('order_confirmation', {
     name: customerName,
     email: customerEmail,
     customer_address: { line1: addr.line1, city: addr.city, postal_code: addr.postal_code, country: addr.country },
     items: items.map(i => ({ artwork_title: i.artwork_title, quantity: i.quantity, price: i.price })),
+    subtotal: session.amount_subtotal / 100,
+    tax: (session.total_details?.amount_tax ?? 0) / 100,
     total: session.amount_total / 100,
   });
+  console.log('[webhook] order emails:', JSON.stringify(results));
 }
 
 export default async function handler(req, res) {
