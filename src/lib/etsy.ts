@@ -21,17 +21,23 @@ function decodeHtml(s: string): string {
 }
 
 async function fetchListingImages(apiKey: string, shopId: string, listingId: number): Promise<EtsyImage[]> {
-  try {
-    const res = await fetch(`/api/etsy-listings?shopId=${encodeURIComponent(shopId)}&listingId=${listingId}`, {
-      method: 'GET', headers: { 'x-etsy-key': apiKey },
-    });
-    if (!res.ok) { console.warn('[Etsy] Images fetch failed for', listingId, res.status); return []; }
-    const data = await res.json();
-    return (data.results ?? []) as EtsyImage[];
-  } catch (err) {
-    console.warn('[Etsy] Images fetch error for', listingId, err);
-    return [];
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      const res = await fetch(`/api/etsy-listings?shopId=${encodeURIComponent(shopId)}&listingId=${listingId}`, {
+        method: 'GET', headers: { 'x-etsy-key': apiKey },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return (data.results ?? []) as EtsyImage[];
+      }
+      console.warn('[Etsy] Images fetch failed for', listingId, 'status', res.status, 'attempt', attempt);
+      if (res.status !== 429 && res.status < 500) return [];
+    } catch (err) {
+      console.warn('[Etsy] Images fetch error for', listingId, 'attempt', attempt, err);
+    }
+    await new Promise(r => setTimeout(r, 600 * attempt));
   }
+  return [];
 }
 
 export async function fetchEtsyListings(apiKey: string, shopId: string): Promise<EtsyListing[]> {
@@ -49,18 +55,18 @@ export async function fetchEtsyListings(apiKey: string, shopId: string): Promise
     title: decodeHtml(l.title ?? ''),
     description: decodeHtml(l.description ?? ''),
   }));
-  await Promise.all(listings.map(async l => {
+  for (const l of listings) {
     if (!l.images || l.images.length === 0) {
       l.images = await fetchListingImages(apiKey, shopId, l.listing_id);
-      console.log('[Etsy] Fetched images separately for', l.listing_id, l.images.length);
+      console.log('[Etsy] Fetched images separately for', l.listing_id, l.title, l.images.length);
     }
-  }));
+  }
   return listings;
 }
 
 export function etsyListingToPayload(listing: EtsyListing) {
   const price = listing.price.amount / listing.price.divisor;
-  const images = (listing.images ?? []).map(img => img.url_fullxfull).filter(Boolean);
+  const images = (listing.images ?? []).map(img => img.url_fullxfull || img.url_570xN).filter(Boolean);
   return {
     title: listing.title.trim(),
     description: listing.description.slice(0, 3000),

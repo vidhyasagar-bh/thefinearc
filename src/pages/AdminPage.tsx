@@ -325,7 +325,7 @@ function EtsyImportModal({
                   const done = imported.has(listing.listing_id);
                   const busy = importing.has(listing.listing_id);
                   const price = listing.price.amount / listing.price.divisor;
-                  const thumb = listing.images?.[0]?.url_570xN;
+                  const thumb = listing.images?.[0]?.url_570xN || listing.images?.[0]?.url_fullxfull;
 
                   return (
                     <div key={listing.listing_id}
