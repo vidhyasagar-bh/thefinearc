@@ -9,7 +9,8 @@ export async function sb(path, init = {}) {
     ...init,
     headers: {
       apikey: key(),
-      Authorization: `Bearer ${key()}`,
+      // New-style sb_secret_/sb_publishable_ keys are not JWTs and must not be sent as a Bearer token
+      ...(key()?.startsWith('sb_') ? {} : { Authorization: `Bearer ${key()}` }),
       'Content-Type': 'application/json',
       ...(init.headers || {}),
     },
