@@ -8,11 +8,11 @@ export function AboutPage() {
       <div className="relative pt-24 md:pt-0">
         <div className="h-[60vh] md:h-[80vh] relative overflow-hidden">
           <img
-            src="https://picsum.photos/seed/about-hero/2000/1200"
-            alt="Artist studio"
-            className="w-full h-full object-cover"
+            src="/artist.jpg"
+            alt="The artist with her hand-painted mandala artworks"
+            className="w-full h-full object-cover object-[center_25%]"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60" />
           <div className="absolute bottom-12 left-6 md:left-20">
             <FadeIn>
               <h1 className="font-serif text-5xl md:text-7xl font-light text-art-white leading-tight">
@@ -30,9 +30,9 @@ export function AboutPage() {
             <FadeIn direction="left">
               <div className="aspect-[4/3] sm:aspect-[3/4] overflow-hidden bg-cream-100 md:sticky md:top-32">
                 <img
-                  src="/artist.jpg"
-                  alt="The artist with her hand-painted mandala artworks"
-                  className="w-full h-full object-cover object-[center_30%]"
+                  src="https://picsum.photos/seed/artist-portrait/800/1000"
+                  alt="Artist portrait"
+                  className="w-full h-full object-cover"
                 />
               </div>
             </FadeIn>
