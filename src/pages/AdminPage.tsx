@@ -324,6 +324,19 @@ function EtsyImportModal({
   const [importing, setImporting] = useState<Set<number>>(new Set());
   const [sections, setSections] = useState<Record<number, string>>({});
   const [defaultSection, setDefaultSection] = useState('');
+  const [connected, setConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/etsy-oauth?action=status')
+      .then(r => r.json())
+      .then(d => setConnected(Boolean(d.connected)))
+      .catch(() => setConnected(false));
+  }, []);
+
+  function connectEtsy() {
+    if (!apiKey.trim()) { toast.error('Enter your Etsy API key first.'); return; }
+    window.location.assign(`/api/etsy-oauth?action=start&key=${encodeURIComponent(apiKey.trim())}`);
+  }
 
   async function handleFetch() {
     if (!apiKey.trim()) { toast.error('Enter your Etsy API key.'); return; }
@@ -419,6 +432,18 @@ function EtsyImportModal({
               Tip: set <code className="bg-cream-100 px-1">VITE_ETSY_API_KEY</code> and <code className="bg-cream-100 px-1">VITE_ETSY_SHOP_ID</code> in your .env to pre-fill these.
             </p>
           )}
+        </div>
+
+        {/* Etsy connection (needed for variations and their photos) */}
+        <div className="px-6 py-3 border-b border-art-pale shrink-0 flex flex-wrap items-center justify-between gap-3">
+          <p className="font-sans text-xs text-art-muted">
+            {connected === null ? 'Checking Etsy connection…'
+              : connected ? '✓ Etsy connected — variations and their photos can be imported.'
+              : 'Not connected — Etsy only shares variations and their photos after you sign in once.'}
+          </p>
+          <Button size="sm" variant={connected ? 'secondary' : 'primary'} onClick={connectEtsy}>
+            {connected ? 'Reconnect Etsy' : 'Connect Etsy'}
+          </Button>
         </div>
 
         {/* Listings grid */}
@@ -613,6 +638,15 @@ function AdminDashboard({
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, []);
 
   const [showEtsyImport, setShowEtsyImport] = useState(false);
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const result = q.get('etsy');
+    if (!result) return;
+    if (result === 'connected') { toast.success('Etsy connected.'); setShowEtsyImport(true); }
+    else toast.error(`Etsy sign-in failed: ${q.get('msg') ?? 'unknown error'}`, { duration: 8000 });
+    window.history.replaceState({}, '', window.location.pathname);
+  }, []);
 
   // ── data fetchers ────────────────────────────────────────────────────────────
   const fetchArtworks = useCallback(async () => {

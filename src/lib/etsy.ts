@@ -14,7 +14,7 @@ export interface EtsyVariationImage {
 }
 
 export interface EtsyDebug {
-  inventory?: { source: 'included' | 'fetched'; status?: number; error?: string; products?: number };
+  inventory?: { source: 'included' | 'fetched'; status?: number; error?: string; products?: number; needsConnect?: boolean };
   variationImages?: { status?: number; error?: string; count?: number };
   raw?: { inventory?: string; variationImages?: string };
 }
@@ -99,6 +99,10 @@ async function fetchListingResource<T>(apiKey: string, shopId: string, listingId
   return last;
 }
 
+function needsConnect(r: { status: number; text: string }): boolean {
+  return r.status === 401 && /needs_connect|access token|not connected/i.test(r.text);
+}
+
 function errorText(r: { text: string }): string {
   try {
     const j = JSON.parse(r.text);
@@ -142,7 +146,7 @@ export async function fetchEtsyListings(apiKey: string, shopId: string): Promise
       l.inventory = r.data ?? { products: [] };
       debug.inventory = r.ok
         ? { source: 'fetched', status: r.status, products: r.data?.products?.length ?? 0 }
-        : { source: 'fetched', status: r.status, error: errorText(r) };
+        : { source: 'fetched', status: r.status, error: errorText(r), needsConnect: needsConnect(r) };
       debug.raw = { inventory: r.text.slice(0, 2500) };
     } else {
       debug.inventory = { source: 'included', products: l.inventory.products?.length ?? 0 };
@@ -271,6 +275,7 @@ function buildExtras(l: EtsyListing): EtsyExtras {
 // One-line, human-readable result of what Etsy returned for a listing's variations
 export function etsyDiagnosticLine(listing: EtsyListing): string {
   const d = listing.debug;
+  if (d?.inventory?.needsConnect) return 'Variations: connect Etsy (button above) to load them';
   if (d?.inventory?.error) return `Variations: Etsy refused (${d.inventory.status}) ${d.inventory.error}`;
   const v = buildVariations(listing);
   const products = d?.inventory?.products ?? listing.inventory?.products?.length ?? 0;

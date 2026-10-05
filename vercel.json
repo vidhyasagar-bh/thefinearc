@@ -1,5 +1,12 @@
 {
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/api/etsy-oauth-callback",
+      "destination": "/api/etsy-oauth?action=callback"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ]
 }

@@ -59,3 +59,14 @@ DROP POLICY IF EXISTS "Public can insert orders" ON public.orders;
 
 -- 8. Free-text sections: allow any category slug (mandalas, hearts, ornaments, ...)
 ALTER TABLE public.artworks DROP CONSTRAINT IF EXISTS artworks_category_check;
+
+-- 9. Etsy OAuth tokens (read by the server with the service role only — no policies on purpose)
+CREATE TABLE IF NOT EXISTS public.etsy_auth (
+  id integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  client_id text NOT NULL,
+  access_token text NOT NULL,
+  refresh_token text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.etsy_auth ENABLE ROW LEVEL SECURITY;

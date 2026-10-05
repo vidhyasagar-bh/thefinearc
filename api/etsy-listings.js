@@ -1,4 +1,8 @@
+import { getAccessToken } from './_lib/etsyAuth.js';
+
 const RESOURCES = new Set(['images', 'videos', 'inventory', 'variation-images']);
+// These need an OAuth access token (scope listings_r), not just the API key
+const NEEDS_TOKEN = new Set(['inventory', 'variation-images']);
 
 export default async function handler(req, res) {
   const apiKey = req.headers['x-etsy-key'] || process.env.ETSY_API_KEY;
@@ -29,8 +33,22 @@ export default async function handler(req, res) {
   }
   console.log('[etsy-listings] GET', url);
 
+  const headers = { 'x-api-key': String(apiKey) };
+  if (listingId && NEEDS_TOKEN.has(String(resource))) {
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        return res.status(401).json({ error: 'Etsy is not connected. Use "Connect Etsy" in the import window.', needs_connect: true });
+      }
+      headers.Authorization = `Bearer ${token}`;
+    } catch (err) {
+      console.error('[etsy-listings] token error', err);
+      return res.status(401).json({ error: `Etsy sign-in expired or failed (${String(err.message).slice(0, 150)}). Use "Connect Etsy" again.`, needs_connect: true });
+    }
+  }
+
   try {
-    const etsyRes = await fetch(url, { method: 'GET', headers: { 'x-api-key': String(apiKey) } });
+    const etsyRes = await fetch(url, { method: 'GET', headers });
     const body = await etsyRes.text();
     console.log('[etsy-listings] Etsy status:', etsyRes.status, body.slice(0, 300));
     res.setHeader('Content-Type', 'application/json');
