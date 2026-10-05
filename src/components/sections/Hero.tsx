@@ -17,20 +17,11 @@ export function Hero() {
       {/* Content */}
       <div className="relative z-10 h-full flex flex-col justify-end pb-16 md:pb-28 px-6 md:px-12 lg:px-20">
         <div className="max-w-8xl mx-auto w-full">
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.3 }}
-            className="font-sans text-[10px] tracking-widest uppercase text-white/60 mb-4"
-          >
-            Original Fine Art
-          </motion.p>
-
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="font-serif text-[2.75rem] leading-[1.08] md:text-7xl lg:text-8xl font-light text-white max-w-2xl"
+            className="font-serif text-4xl leading-[1.1] md:text-5xl lg:text-6xl font-light text-white max-w-2xl"
           >
             Art that stays
             <br />
