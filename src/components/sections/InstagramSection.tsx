@@ -27,24 +27,18 @@ export function InstagramSection() {
               href="https://www.instagram.com/the.fine.arc"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Follow The Fine Arc on Instagram"
-              className="inline-flex flex-col items-center gap-4 group"
+              className="inline-flex items-center gap-2.5 font-sans text-[11px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors group"
             >
               <span
-                className="flex items-center justify-center w-14 h-14 rounded-[16px] text-white shadow-md transition-transform duration-500 group-hover:scale-105 group-hover:shadow-lg"
+                className="flex items-center justify-center w-6 h-6 rounded-[7px] text-white transition-transform duration-300 group-hover:scale-110"
                 style={{
                   background:
                     'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285aeb 90%)',
                 }}
               >
-                <InstagramIcon size={28} />
+                <InstagramIcon size={14} />
               </span>
-              <span className="font-sans text-[11px] tracking-widest uppercase text-art-muted group-hover:text-art-charcoal transition-colors">
-                Follow the Studio
-              </span>
-              <span className="font-serif text-xl font-light text-art-charcoal -mt-2">
-                @the.fine.arc
-              </span>
+              Follow the Studio
             </a>
           </div>
         </FadeIn>
