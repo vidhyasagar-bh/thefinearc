@@ -30,8 +30,14 @@ export function InstagramSection() {
               aria-label="Follow The Fine Arc on Instagram"
               className="inline-flex flex-col items-center gap-4 group"
             >
-              <span className="flex items-center justify-center w-14 h-14 rounded-full border border-art-light text-art-charcoal transition-all duration-500 group-hover:border-art-charcoal group-hover:bg-art-charcoal group-hover:text-art-white">
-                <InstagramIcon size={22} />
+              <span
+                className="flex items-center justify-center w-14 h-14 rounded-[16px] text-white shadow-md transition-transform duration-500 group-hover:scale-105 group-hover:shadow-lg"
+                style={{
+                  background:
+                    'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285aeb 90%)',
+                }}
+              >
+                <InstagramIcon size={28} />
               </span>
               <span className="font-sans text-[11px] tracking-widest uppercase text-art-muted group-hover:text-art-charcoal transition-colors">
                 Follow the Studio
