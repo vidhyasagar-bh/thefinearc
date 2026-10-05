@@ -15,7 +15,7 @@ import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { mockArtworks } from '../lib/mockData';
-import { fetchEtsyListings, etsyListingToPayload, etsyNewListingDefaults, etsyVariationSummary, type EtsyListing } from '../lib/etsy';
+import { fetchEtsyListings, etsyListingToPayload, etsyNewListingDefaults, etsyDiagnosticLine, etsyDiagnosticsReport, type EtsyListing } from '../lib/etsy';
 
 type AdminTab = 'artworks' | 'orders' | 'commissions' | 'analytics';
 
@@ -442,9 +442,17 @@ function EtsyImportModal({
                     <option value="mandalas" /><option value="hearts" /><option value="ornaments" />
                   </datalist>
                 </div>
-                <Button size="sm" variant="secondary" onClick={handleImportAll}>
-                  Import All
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => {
+                    navigator.clipboard.writeText(etsyDiagnosticsReport(listings))
+                      .then(() => toast.success('Diagnostics copied.'), () => toast.error('Could not copy.'));
+                  }}>
+                    Copy diagnostics
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={handleImportAll}>
+                    Import All
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -470,7 +478,7 @@ function EtsyImportModal({
                         {listing.price.currency_code} {price.toFixed(2)}
                       </p>
                       <p className="font-sans text-[10px] text-art-muted">
-                        {etsyVariationSummary(listing) || 'No variations'}
+                        {etsyDiagnosticLine(listing)}
                         {listing.videos && listing.videos.length > 0 ? ' · video' : ''}
                       </p>
                       <input

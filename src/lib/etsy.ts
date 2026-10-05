@@ -6,6 +6,19 @@ export interface EtsyImage {
   url_570xN: string;
 }
 
+export interface EtsyVariationImage {
+  property_id?: number;
+  value_id?: number | null;
+  value?: string;
+  image_id: number | string;
+}
+
+export interface EtsyDebug {
+  inventory?: { source: 'included' | 'fetched'; status?: number; error?: string; products?: number };
+  variationImages?: { status?: number; error?: string; count?: number };
+  raw?: { inventory?: string; variationImages?: string };
+}
+
 interface EtsyMoney { amount: number; divisor: number; currency_code: string }
 
 interface EtsyVideo {
@@ -42,7 +55,8 @@ export interface EtsyListing {
   images: EtsyImage[];
   videos?: EtsyVideo[];
   inventory?: EtsyInventory;
-  variationImages?: { property_id: number; value_id: number | null; image_id: number }[];
+  variationImages?: EtsyVariationImage[];
+  debug?: EtsyDebug;
   shipping_profile?: Record<string, any> | null;
   item_length?: number | null;
   item_width?: number | null;
@@ -59,22 +73,39 @@ function decodeHtml(s: string): string {
   return t.value;
 }
 
-async function fetchListingResource<T>(apiKey: string, shopId: string, listingId: number, resource: 'images' | 'videos' | 'inventory' | 'variation-images'): Promise<T | null> {
+interface ResourceResult<T> { ok: boolean; status: number; data: T | null; text: string }
+
+async function fetchListingResource<T>(apiKey: string, shopId: string, listingId: number, resource: 'images' | 'videos' | 'inventory' | 'variation-images'): Promise<ResourceResult<T>> {
+  let last: ResourceResult<T> = { ok: false, status: 0, data: null, text: '' };
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
       const res = await fetch(
         `/api/etsy-listings?shopId=${encodeURIComponent(shopId)}&listingId=${listingId}&resource=${resource}`,
         { method: 'GET', headers: { 'x-etsy-key': apiKey } }
       );
-      if (res.ok) return (await res.json()) as T;
-      console.warn(`[Etsy] ${resource} fetch failed for`, listingId, 'status', res.status, 'attempt', attempt);
-      if (res.status !== 429 && res.status < 500) return null;
+      const text = await res.text();
+      let data: T | null = null;
+      try { data = JSON.parse(text) as T; } catch { /* non-JSON error body */ }
+      last = { ok: res.ok, status: res.status, data: res.ok ? data : null, text };
+      if (res.ok) return last;
+      console.warn(`[Etsy] ${resource} fetch failed for`, listingId, 'status', res.status, text.slice(0, 300), 'attempt', attempt);
+      if (res.status !== 429 && res.status < 500) return last;
     } catch (err) {
+      last = { ok: false, status: 0, data: null, text: String(err) };
       console.warn(`[Etsy] ${resource} fetch error for`, listingId, 'attempt', attempt, err);
     }
     await new Promise(r => setTimeout(r, 600 * attempt));
   }
-  return null;
+  return last;
+}
+
+function errorText(r: { text: string }): string {
+  try {
+    const j = JSON.parse(r.text);
+    return String(j.error_description || j.error || j.message || r.text).slice(0, 200);
+  } catch {
+    return r.text.slice(0, 200);
+  }
 }
 
 export async function fetchEtsyListings(apiKey: string, shopId: string): Promise<EtsyListing[]> {
@@ -87,32 +118,48 @@ export async function fetchEtsyListings(apiKey: string, shopId: string): Promise
   if (!res.ok) throw new Error(`Etsy ${res.status}: ${body}`);
   const data = JSON.parse(body);
   console.log('[Etsy] Listing count:', data.results?.length ?? 0);
-  console.log('[Etsy] Sample listing fields:', JSON.stringify((data.results ?? [])[0] ?? {}).slice(0, 3000));
   const listings = ((data.results ?? []) as EtsyListing[]).map(l => ({
     ...l,
     title: decodeHtml(l.title ?? ''),
     description: decodeHtml(l.description ?? ''),
     tags: (l.tags ?? []).map(decodeHtml),
+    debug: {} as EtsyDebug,
   }));
   for (const l of listings) {
+    const debug = l.debug as EtsyDebug;
     if (!l.images || l.images.length === 0) {
       const r = await fetchListingResource<{ results: EtsyImage[] }>(apiKey, shopId, l.listing_id, 'images');
-      l.images = r?.results ?? [];
+      l.images = r.data?.results ?? [];
     }
     if (l.videos === undefined) {
       const r = await fetchListingResource<{ results: EtsyVideo[] }>(apiKey, shopId, l.listing_id, 'videos');
-      l.videos = r?.results ?? [];
+      l.videos = r.data?.results ?? [];
     }
+
+    // Inventory (the list of purchasable variations)
     if (l.inventory === undefined) {
       const r = await fetchListingResource<EtsyInventory>(apiKey, shopId, l.listing_id, 'inventory');
-      l.inventory = r ?? { products: [] };
+      l.inventory = r.data ?? { products: [] };
+      debug.inventory = r.ok
+        ? { source: 'fetched', status: r.status, products: r.data?.products?.length ?? 0 }
+        : { source: 'fetched', status: r.status, error: errorText(r) };
+      debug.raw = { inventory: r.text.slice(0, 2500) };
+    } else {
+      debug.inventory = { source: 'included', products: l.inventory.products?.length ?? 0 };
+      debug.raw = { inventory: JSON.stringify(l.inventory).slice(0, 2500) };
     }
+
+    // Which photo belongs to which variation
     const hasOptions = (l.inventory.products ?? []).some(p => (p.property_values?.length ?? 0) > 0);
     if (hasOptions) {
-      const r = await fetchListingResource<{ results: { property_id: number; value_id: number | null; image_id: number }[] }>(apiKey, shopId, l.listing_id, 'variation-images');
-      l.variationImages = r?.results ?? [];
+      const r = await fetchListingResource<{ results: EtsyVariationImage[] }>(apiKey, shopId, l.listing_id, 'variation-images');
+      l.variationImages = r.data?.results ?? [];
+      debug.variationImages = r.ok
+        ? { status: r.status, count: l.variationImages.length }
+        : { status: r.status, error: errorText(r) };
+      debug.raw = { ...debug.raw, variationImages: r.text.slice(0, 2500) };
     }
-    console.log('[Etsy] Listing', l.listing_id, l.title, '— images:', l.images.length, 'videos:', l.videos.length, 'products:', l.inventory.products?.length ?? 0);
+    console.log('[Etsy] Listing', l.listing_id, l.title, JSON.stringify({ ...debug, raw: undefined }));
   }
   return listings;
 }
@@ -159,10 +206,13 @@ function buildVariations(listing: EtsyListing): ArtworkVariation[] {
     }
     let image: string | undefined;
     for (const pv of p.property_values ?? []) {
-      const match = (listing.variationImages ?? []).find(vi =>
-        vi.property_id === pv.property_id && (vi.value_id == null || (pv.value_ids ?? []).includes(vi.value_id))
-      );
-      const img = match && (listing.images ?? []).find(i => i.listing_image_id === match.image_id);
+      const match = (listing.variationImages ?? []).find(vi => {
+        if (vi.property_id != null && pv.property_id != null && Number(vi.property_id) !== Number(pv.property_id)) return false;
+        const byId = vi.value_id != null && (pv.value_ids ?? []).map(Number).includes(Number(vi.value_id));
+        const byText = Boolean(vi.value) && (pv.values ?? []).includes(vi.value as string);
+        return byId || byText;
+      });
+      const img = match && (listing.images ?? []).find(i => String(i.listing_image_id) === String(match.image_id));
       if (img) { image = img.url_fullxfull || img.url_570xN; break; }
     }
     const live = (p.offerings ?? []).filter(o => !o.is_deleted);
@@ -216,6 +266,29 @@ function buildExtras(l: EtsyListing): EtsyExtras {
       })),
     } : null,
   };
+}
+
+// One-line, human-readable result of what Etsy returned for a listing's variations
+export function etsyDiagnosticLine(listing: EtsyListing): string {
+  const d = listing.debug;
+  if (d?.inventory?.error) return `Variations: Etsy refused (${d.inventory.status}) ${d.inventory.error}`;
+  const v = buildVariations(listing);
+  const products = d?.inventory?.products ?? listing.inventory?.products?.length ?? 0;
+  if (v.length === 0) return `Variations: none found (${products} product${products === 1 ? '' : 's'} from Etsy)`;
+  const tagged = v.filter(x => x.image).length;
+  let line = `${v.length} variation${v.length > 1 ? 's' : ''}, ${tagged} with photo`;
+  if (d?.variationImages?.error) line += ` — photo tags refused (${d.variationImages.status}) ${d.variationImages.error}`;
+  else if (tagged < v.length && d?.variationImages) line += ` (Etsy sent ${d.variationImages.count ?? 0} photo tags)`;
+  return line;
+}
+
+export function etsyDiagnosticsReport(listings: EtsyListing[]): string {
+  return JSON.stringify(listings.map(l => ({
+    listing_id: l.listing_id,
+    title: l.title,
+    summary: etsyDiagnosticLine(l),
+    debug: l.debug,
+  })), null, 2);
 }
 
 export function etsyVariationSummary(listing: EtsyListing): string {
