@@ -32,8 +32,14 @@ export default async function handler(req, res) {
   }
 
   if (action === 'start') {
-    const clientId = String(req.query.key || '').trim();
-    if (!/^[A-Za-z0-9]{10,64}$/.test(clientId)) return res.status(400).send('Missing or invalid Etsy API key.');
+    // Accept the bare keystring, or "keystring:shared_secret" — OAuth only needs the keystring part
+    const raw = String(req.query.key || '').trim().replace(/^["']|["']$/g, '');
+    const clientId = raw.split(':')[0].trim();
+    if (!/^[\w-]{8,128}$/.test(clientId)) {
+      return res.status(400).send(
+        `Missing or invalid Etsy API key (received ${raw.length} characters). Paste the Keystring from developers.etsy.com, not the shared secret.`
+      );
+    }
     const verifier = b64url(crypto.randomBytes(32));
     const state = b64url(crypto.randomBytes(16));
     const challenge = b64url(crypto.createHash('sha256').update(verifier).digest());

@@ -334,8 +334,9 @@ function EtsyImportModal({
   }, []);
 
   function connectEtsy() {
-    if (!apiKey.trim()) { toast.error('Enter your Etsy API key first.'); return; }
-    window.location.assign(`/api/etsy-oauth?action=start&key=${encodeURIComponent(apiKey.trim())}`);
+    const key = apiKey.trim().replace(/^["']|["']$/g, '').split(':')[0].trim();
+    if (!key) { toast.error('Enter your Etsy API key (the Keystring) first.'); return; }
+    window.location.assign(`/api/etsy-oauth?action=start&key=${encodeURIComponent(key)}`);
   }
 
   async function handleFetch() {
