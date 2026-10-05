@@ -27,10 +27,18 @@ export function InstagramSection() {
               href="https://www.instagram.com/the.fine.arc"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 font-sans text-[11px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors group"
+              aria-label="Follow The Fine Arc on Instagram"
+              className="inline-flex flex-col items-center gap-4 group"
             >
-              <InstagramIcon size={14} />
-              Follow the Studio
+              <span className="flex items-center justify-center w-14 h-14 rounded-full border border-art-light text-art-charcoal transition-all duration-500 group-hover:border-art-charcoal group-hover:bg-art-charcoal group-hover:text-art-white">
+                <InstagramIcon size={22} />
+              </span>
+              <span className="font-sans text-[11px] tracking-widest uppercase text-art-muted group-hover:text-art-charcoal transition-colors">
+                Follow the Studio
+              </span>
+              <span className="font-serif text-xl font-light text-art-charcoal -mt-2">
+                @the.fine.arc
+              </span>
             </a>
           </div>
         </FadeIn>
