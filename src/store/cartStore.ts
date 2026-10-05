@@ -6,13 +6,17 @@ export function cartKey(item: Pick<CartItem, 'artwork' | 'variation'>): string {
   return `${item.artwork.id}:${item.variation?.id ?? ''}`;
 }
 
+export function stockOf(item: Pick<CartItem, 'artwork' | 'variation'>): number {
+  return item.variation ? item.variation.quantity : item.artwork.quantity ?? 1;
+}
+
 export function unitPrice(item: Pick<CartItem, 'artwork' | 'variation'>): number {
   return item.variation?.price ?? item.artwork.price;
 }
 
 interface CartStore {
   items: CartItem[];
-  addItem: (artwork: Artwork, variation?: ArtworkVariation) => void;
+  addItem: (artwork: Artwork, variation?: ArtworkVariation, quantity?: number) => void;
   removeItem: (key: string) => void;
   updateQuantity: (key: string, quantity: number) => void;
   clearCart: () => void;
@@ -25,12 +29,19 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
 
-      addItem: (artwork, variation) => {
+      addItem: (artwork, variation, quantity = 1) => {
         set((state) => {
-          // Original artworks are unique — cap at 1 per artwork/variation
           const key = cartKey({ artwork, variation });
-          if (state.items.find(i => cartKey(i) === key)) return state;
-          return { items: [...state.items, { artwork, variation, quantity: 1 }] };
+          const stock = Math.max(1, stockOf({ artwork, variation }));
+          const existing = state.items.find(i => cartKey(i) === key);
+          if (existing) {
+            return {
+              items: state.items.map(i =>
+                cartKey(i) === key ? { ...i, quantity: Math.min(stock, i.quantity + quantity) } : i
+              ),
+            };
+          }
+          return { items: [...state.items, { artwork, variation, quantity: Math.min(stock, Math.max(1, quantity)) }] };
         });
       },
 
@@ -44,7 +55,9 @@ export const useCartStore = create<CartStore>()(
           return;
         }
         set((state) => ({
-          items: state.items.map(i => (cartKey(i) === key ? { ...i, quantity } : i)),
+          items: state.items.map(i =>
+            cartKey(i) === key ? { ...i, quantity: Math.min(quantity, Math.max(1, stockOf(i))) } : i
+          ),
         }));
       },
 

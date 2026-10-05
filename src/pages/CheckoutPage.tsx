@@ -95,10 +95,10 @@ export function CheckoutPage() {
                         <img src={artwork.images[0]} alt={artwork.title} className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-serif text-sm font-light text-art-charcoal leading-snug">{artwork.title}</p>
+                        <p className="font-serif text-sm font-light text-art-charcoal leading-snug">{artwork.title}{item.quantity > 1 ? ` × ${item.quantity}` : ''}</p>
                         <p className="font-sans text-xs text-art-muted mt-0.5">{item.variation ? item.variation.options.map(o => `${o.name}: ${o.value}`).join(' · ') : artwork.dimensions}</p>
                       </div>
-                      <p className="font-sans text-sm text-art-charcoal shrink-0">{formatPrice(unitPrice(item))}</p>
+                      <p className="font-sans text-sm text-art-charcoal shrink-0">{formatPrice(unitPrice(item) * item.quantity)}</p>
                     </div>
                   ); })}
                 </div>

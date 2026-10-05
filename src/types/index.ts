@@ -55,14 +55,8 @@ export interface EtsyExtras {
   } | null;
 }
 
-export type ArtworkCategory =
-  | 'painting'
-  | 'drawing'
-  | 'print'
-  | 'photography'
-  | 'mixed-media'
-  | 'sculpture'
-  | 'commission';
+// A free-text section slug such as 'mandalas' or 'hearts' (see utils/sections.ts)
+export type ArtworkCategory = string;
 
 export interface CartItem {
   artwork: Artwork;

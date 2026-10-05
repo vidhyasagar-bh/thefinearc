@@ -4,11 +4,11 @@ import { X } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { FadeIn } from '../components/ui/FadeIn';
-import { useCartStore, cartKey, unitPrice } from '../store/cartStore';
+import { useCartStore, cartKey, unitPrice, stockOf } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
 
 export function CartPage() {
-  const { items, removeItem, total } = useCartStore();
+  const { items, removeItem, updateQuantity, total } = useCartStore();
   const cartTotal = total();
 
   return (
@@ -88,9 +88,27 @@ export function CartPage() {
                             </button>
                           </div>
 
-                          <p className="font-sans text-base text-art-charcoal mt-3">
-                            {formatPrice(unitPrice(item))}
-                          </p>
+                          <div className="flex items-center justify-between mt-3 gap-4">
+                            {stockOf(item) > 1 ? (
+                              <div className="inline-flex items-center border border-art-pale">
+                                <button
+                                  onClick={() => updateQuantity(cartKey(item), item.quantity - 1)}
+                                  aria-label="Decrease quantity"
+                                  className="w-8 h-8 text-art-muted hover:text-art-charcoal transition-colors"
+                                >−</button>
+                                <span className="w-8 text-center font-sans text-sm text-art-charcoal">{item.quantity}</span>
+                                <button
+                                  onClick={() => updateQuantity(cartKey(item), item.quantity + 1)}
+                                  disabled={item.quantity >= stockOf(item)}
+                                  aria-label="Increase quantity"
+                                  className="w-8 h-8 text-art-muted hover:text-art-charcoal transition-colors disabled:opacity-30"
+                                >+</button>
+                              </div>
+                            ) : <span />}
+                            <p className="font-sans text-base text-art-charcoal">
+                              {formatPrice(unitPrice(item) * item.quantity)}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </motion.div>
@@ -108,10 +126,10 @@ export function CartPage() {
                     {items.map((item) => (
                       <div key={cartKey(item)} className="flex justify-between text-sm gap-4">
                         <span className="font-sans text-art-muted truncate">
-                          {item.artwork.title}
+                          {item.artwork.title}{item.quantity > 1 ? ` × ${item.quantity}` : ''}
                         </span>
                         <span className="font-sans text-art-charcoal shrink-0">
-                          {formatPrice(unitPrice(item))}
+                          {formatPrice(unitPrice(item) * item.quantity)}
                         </span>
                       </div>
                     ))}

@@ -1,26 +1,33 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Layout } from '../components/layout/Layout';
 import { ArtworkGrid } from '../components/artwork/ArtworkGrid';
 import { FadeIn } from '../components/ui/FadeIn';
 import { PageLoader } from '../components/ui/LoadingSpinner';
 import { useArtworks } from '../hooks/useArtworks';
-import type { ArtworkCategory } from '../types';
-
-const categories: { label: string; value: ArtworkCategory | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Painting', value: 'painting' },
-  { label: 'Drawing', value: 'drawing' },
-  { label: 'Photography', value: 'photography' },
-  { label: 'Print', value: 'print' },
-  { label: 'Mixed Media', value: 'mixed-media' },
-];
+import { sectionLabel } from '../utils/sections';
 
 export function GalleryPage() {
-  const [activeCategory, setActiveCategory] = useState<ArtworkCategory | 'all'>('all');
-  const { artworks, loading } = useArtworks(
-    activeCategory === 'all' ? undefined : activeCategory
-  );
+  const [params, setParams] = useSearchParams();
+  const { artworks: all, loading } = useArtworks();
+
+  // Sections come from the listings themselves, so a new section appears as soon as one listing uses it
+  const categories = useMemo(() => {
+    const slugs = Array.from(new Set(all.map(a => a.category).filter(Boolean))).sort();
+    return [
+      { label: 'All', value: 'all' },
+      ...slugs.map(slug => ({ label: sectionLabel(slug), value: slug })),
+    ];
+  }, [all]);
+
+  const requested = params.get('section') ?? 'all';
+  const activeCategory = categories.some(c => c.value === requested) ? requested : 'all';
+  const artworks = activeCategory === 'all' ? all : all.filter(a => a.category === activeCategory);
+
+  function setActiveCategory(value: string) {
+    setParams(value === 'all' ? {} : { section: value }, { replace: true });
+  }
 
   return (
     <Layout>

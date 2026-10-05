@@ -8,7 +8,8 @@ import {
 import { Button } from '../components/ui/Button';
 import { Input, Textarea } from '../components/ui/Input';
 import { PageLoader } from '../components/ui/LoadingSpinner';
-import type { Artwork, ArtworkCategory, CommissionInquiry } from '../types';
+import type { Artwork, ArtworkCategory, ArtworkVariation, CommissionInquiry } from '../types';
+import { sectionSlug, sectionLabel } from '../utils/sections';
 import { formatPrice, formatDate } from '../utils/format';
 import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
@@ -24,6 +25,7 @@ interface ArtworkFormState {
   images: string[]; video_url: string;
   availability: 'available' | 'sold' | 'reserved';
   framing: string; year: string;
+  quantity: string; variations: ArtworkVariation[];
 }
 
 interface Order {
@@ -42,8 +44,8 @@ interface AnalyticsData {
 
 const emptyArtwork: ArtworkFormState = {
   title: '', description: '', story: '', price: '', dimensions: '', materials: '',
-  category: 'painting', images: [], video_url: '', availability: 'available', framing: '',
-  year: new Date().getFullYear().toString(),
+  category: '', images: [], video_url: '', availability: 'available', framing: '',
+  year: new Date().getFullYear().toString(), quantity: '1', variations: [],
 };
 
 const statusColors: Record<string, string> = {
@@ -203,6 +205,109 @@ function MediaUploader({
   );
 }
 
+// ── Variations & inventory editor ──────────────────────────────────────────────
+function newVariationId() {
+  return `v_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function VariationEditor({
+  variations, onChange, images,
+}: {
+  variations: ArtworkVariation[];
+  onChange: (v: ArtworkVariation[]) => void;
+  images: string[];
+}) {
+  const names = variations[0]?.options.map(o => o.name) ?? [];
+  const photos = images.filter(Boolean);
+  const totalStock = variations.reduce((sum, v) => sum + (Number(v.quantity) || 0), 0);
+
+  function addRow() {
+    const optionNames = names.length ? names : ['Design'];
+    onChange([...variations, {
+      id: newVariationId(),
+      options: optionNames.map(name => ({ name, value: '' })),
+      price: variations[variations.length - 1]?.price ?? 0,
+      quantity: 1,
+    }]);
+  }
+  function patch(id: string, change: Partial<ArtworkVariation>) {
+    onChange(variations.map(v => (v.id === id ? { ...v, ...change } : v)));
+  }
+  function setValue(id: string, index: number, value: string) {
+    onChange(variations.map(v => v.id === id
+      ? { ...v, options: v.options.map((o, i) => (i === index ? { ...o, value } : o)) }
+      : v));
+  }
+  function renameOption(index: number, name: string) {
+    onChange(variations.map(v => ({ ...v, options: v.options.map((o, i) => (i === index ? { ...o, name } : o)) })));
+  }
+
+  return (
+    <div className="space-y-4 border border-art-pale p-4 bg-white/40">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Variations &amp; inventory</p>
+          <p className="font-sans text-xs text-art-muted mt-1 max-w-md">
+            Use this when one listing comes in several designs, sizes or colours. Each row has its own price and stock,
+            and customers can add any number of each to their cart. Leave empty for a single item.
+          </p>
+        </div>
+        {variations.length > 0 && (
+          <p className="font-sans text-xs text-art-charcoal shrink-0">Total stock: {totalStock}</p>
+        )}
+      </div>
+
+      {names.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {names.map((name, i) => (
+            <Input key={i} label={names.length > 1 ? `Option ${i + 1} name` : 'Option name'} value={name}
+              onChange={e => renameOption(i, e.target.value)} placeholder="Design" />
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {variations.map(v => (
+          <div key={v.id} className="border border-art-pale p-3 space-y-3 bg-white">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {v.options.map((o, i) => (
+                <Input key={i} label={o.name || `Option ${i + 1}`} value={o.value}
+                  onChange={e => setValue(v.id, i, e.target.value)} placeholder="e.g. Heart design 1" />
+              ))}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
+              <Input label="Price" type="number" min="0" step="0.01" value={String(v.price)}
+                onChange={e => patch(v.id, { price: e.target.value === '' ? 0 : Number(e.target.value) })} />
+              <Input label="In stock" type="number" min="0" step="1" value={String(v.quantity)}
+                onChange={e => patch(v.id, { quantity: e.target.value === '' ? 0 : Math.max(0, Math.floor(Number(e.target.value))) })} />
+              <div className="col-span-2 sm:col-span-1">
+                <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Photo</label>
+                <div className="flex items-center gap-2">
+                  {v.image && <img src={v.image} alt="" className="w-9 h-9 object-cover shrink-0" />}
+                  <select value={v.image ?? ''} onChange={e => patch(v.id, { image: e.target.value || undefined })}
+                    className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-sm py-2 focus:outline-none focus:border-art-charcoal">
+                    <option value="">None</option>
+                    {photos.map((url, i) => <option key={url} value={url}>Photo {i + 1}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button type="button" onClick={() => onChange(variations.filter(x => x.id !== v.id))}
+              className="font-sans text-xs text-red-400 hover:text-red-600 transition-colors">
+              Remove this variation
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <Button type="button" size="sm" variant="secondary" onClick={addRow}>
+        <Plus size={13} strokeWidth={1.5} />
+        <span className="ml-1">{variations.length === 0 ? 'Add variations' : 'Add another variation'}</span>
+      </Button>
+    </div>
+  );
+}
+
 // ── Etsy Import Modal ──────────────────────────────────────────────────────────
 function EtsyImportModal({
   onClose,
@@ -217,6 +322,8 @@ function EtsyImportModal({
   const [fetching, setFetching] = useState(false);
   const [imported, setImported] = useState<Set<number>>(new Set());
   const [importing, setImporting] = useState<Set<number>>(new Set());
+  const [sections, setSections] = useState<Record<number, string>>({});
+  const [defaultSection, setDefaultSection] = useState('');
 
   async function handleFetch() {
     if (!apiKey.trim()) { toast.error('Enter your Etsy API key.'); return; }
@@ -240,15 +347,21 @@ function EtsyImportModal({
       const { data: existing, error: lookupError } = await supabase
         .from('artworks').select('id').eq('etsy_listing_id', listing.listing_id).maybeSingle();
       if (lookupError) throw lookupError;
+      const chosen = sectionSlug(sections[listing.listing_id] ?? defaultSection);
+      if (!existing && !chosen) {
+        toast.error('Type a section for this listing first (for example hearts or mandalas).');
+        setImporting(prev => { const s = new Set(prev); s.delete(listing.listing_id); return s; });
+        return;
+      }
       const { error } = existing
-        ? await supabase.from('artworks').update(payload).eq('id', existing.id)
-        : await supabase.from('artworks').insert({ ...etsyNewListingDefaults(), ...payload });
+        ? await supabase.from('artworks').update({ ...payload, ...(chosen ? { category: chosen } : {}) }).eq('id', existing.id)
+        : await supabase.from('artworks').insert({ ...etsyNewListingDefaults(chosen), ...payload });
       if (error) throw error;
       setImported(prev => new Set(prev).add(listing.listing_id));
       toast.success(`"${listing.title.slice(0, 40)}" ${existing ? 'updated' : 'imported'}.`);
       onImported();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Import failed.');
+      toast.error((err as { message?: string })?.message ?? 'Import failed.');
     }
     setImporting(prev => { const s = new Set(prev); s.delete(listing.listing_id); return s; });
   }
@@ -319,7 +432,16 @@ function EtsyImportModal({
           {listings.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <p className="font-sans text-xs text-art-muted">{listings.length} listings found</p>
+                <div className="flex flex-wrap items-end gap-4">
+                  <p className="font-sans text-xs text-art-muted pb-2">{listings.length} listings found</p>
+                  <div className="w-48">
+                    <Input label="Default section" value={defaultSection}
+                      onChange={e => setDefaultSection(e.target.value)} placeholder="e.g. mandalas" />
+                  </div>
+                  <datalist id="etsy-section-options">
+                    <option value="mandalas" /><option value="hearts" /><option value="ornaments" />
+                  </datalist>
+                </div>
                 <Button size="sm" variant="secondary" onClick={handleImportAll}>
                   Import All
                 </Button>
@@ -351,6 +473,13 @@ function EtsyImportModal({
                         {etsyVariationSummary(listing) || 'No variations'}
                         {listing.videos && listing.videos.length > 0 ? ' · video' : ''}
                       </p>
+                      <input
+                        list="etsy-section-options"
+                        value={sections[listing.listing_id] ?? defaultSection}
+                        onChange={e => setSections(prev => ({ ...prev, [listing.listing_id]: e.target.value }))}
+                        placeholder="Section (e.g. hearts)"
+                        className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-xs py-1.5 focus:outline-none focus:border-art-charcoal"
+                      />
                       <button
                         onClick={() => handleImport(listing)}
                         disabled={done || busy}
@@ -551,15 +680,40 @@ function AdminDashboard({
   }
 
   async function handleSave() {
-    if (!form.title || !form.price) { toast.error('Title and price are required.'); return; }
+    const variations = form.variations
+      .map(v => ({
+        ...v,
+        options: v.options.map(o => ({ name: o.name.trim() || 'Design', value: o.value.trim() })),
+        price: Number(v.price) || 0,
+        quantity: Math.max(0, Math.floor(Number(v.quantity) || 0)),
+      }))
+      .filter(v => v.options.every(o => o.value));
+    if (form.variations.length !== variations.length) {
+      toast.error('Every variation needs a name (for example "Heart design 1").');
+      return;
+    }
+    const category = sectionSlug(form.category);
+    if (!form.title) { toast.error('Title is required.'); return; }
+    if (!category) { toast.error('Choose or type a section (for example mandalas, hearts, ornaments).'); return; }
+    if (variations.length === 0 && !form.price) { toast.error('Price is required.'); return; }
+
+    const inStock = variations.filter(v => v.quantity > 0);
+    const pool = inStock.length > 0 ? inStock : variations;
+    const price = variations.length > 0 ? Math.min(...pool.map(v => v.price)) : parseFloat(form.price);
+    const quantity = variations.length > 0
+      ? variations.reduce((sum, v) => sum + v.quantity, 0)
+      : (form.quantity === '' ? null : Math.max(0, Math.floor(Number(form.quantity) || 0)));
+    const availability = quantity === 0 ? 'sold' : form.availability;
+
     try {
       const payload = {
         title: form.title, description: form.description, story: form.story || null,
-        price: parseFloat(form.price), dimensions: form.dimensions, materials: form.materials,
-        category: form.category, images: form.images.filter(Boolean),
+        price, dimensions: form.dimensions, materials: form.materials,
+        category, images: form.images.filter(Boolean),
         video_url: form.video_url || null,
-        availability: form.availability, framing: form.framing || null,
+        availability, framing: form.framing || null,
         year: parseInt(form.year) || null,
+        quantity, variations,
       };
       if (supabaseConfigured) {
         const { error } = editingId
@@ -570,7 +724,10 @@ function AdminDashboard({
       toast.success(editingId ? 'Artwork updated.' : 'Artwork added.');
       setShowForm(false); setEditingId(null); setForm(emptyArtwork);
       fetchArtworks();
-    } catch { toast.error('Failed to save.'); }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : (err as { message?: string })?.message;
+      toast.error(message ? `Failed to save: ${message}` : 'Failed to save.');
+    }
   }
 
   async function handleDelete(id: string) {
@@ -594,6 +751,8 @@ function AdminDashboard({
       video_url: artwork.video_url || '',
       availability: artwork.availability, framing: artwork.framing || '',
       year: artwork.year?.toString() || '',
+      quantity: artwork.quantity != null ? String(artwork.quantity) : '1',
+      variations: (artwork.variations ?? []).map(v => ({ ...v, options: v.options.map(o => ({ ...o })) })),
     });
     setEditingId(artwork.id); setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -774,21 +933,32 @@ function AdminDashboard({
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <Input label="Title *" value={form.title} onChange={e => updateForm('title', e.target.value)} />
-                  <Input label="Price *" type="number" value={form.price}
-                    onChange={e => updateForm('price', e.target.value)} placeholder="2400" />
+                  {form.variations.length === 0 ? (
+                    <Input label="Price *" type="number" value={form.price}
+                      onChange={e => updateForm('price', e.target.value)} placeholder="2400" />
+                  ) : (
+                    <div>
+                      <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Price</label>
+                      <p className="font-sans text-sm text-art-muted py-3">Set per variation below.</p>
+                    </div>
+                  )}
                   <Input label="Dimensions" value={form.dimensions}
                     onChange={e => updateForm('dimensions', e.target.value)} placeholder="80 × 100 cm" />
                   <Input label="Materials" value={form.materials}
                     onChange={e => updateForm('materials', e.target.value)} placeholder="Oil on linen" />
                   <Input label="Year" value={form.year} onChange={e => updateForm('year', e.target.value)} />
                   <div>
-                    <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Category</label>
-                    <select value={form.category} onChange={e => updateForm('category', e.target.value)}
-                      className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-sm py-3 focus:outline-none focus:border-art-charcoal">
-                      {['painting','drawing','print','photography','mixed-media','sculpture'].map(c => (
-                        <option key={c} value={c}>{c}</option>
+                    <Input label="Section *" list="section-options" value={form.category}
+                      onChange={e => updateForm('category', e.target.value)}
+                      placeholder="e.g. mandalas, hearts, ornaments" />
+                    <datalist id="section-options">
+                      {Array.from(new Set(artworks.map(a => a.category).filter(Boolean))).sort().map(c => (
+                        <option key={c} value={c}>{sectionLabel(c)}</option>
                       ))}
-                    </select>
+                    </datalist>
+                    <p className="font-sans text-[10px] text-art-muted mt-1">
+                      Pick an existing section or type a new one — it appears in the gallery filter automatically.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Availability</label>
@@ -801,7 +971,16 @@ function AdminDashboard({
                   </div>
                   <Input label="Framing" value={form.framing}
                     onChange={e => updateForm('framing', e.target.value)} placeholder="Unframed" />
+                  {form.variations.length === 0 && (
+                    <Input label="Stock (how many available)" type="number" min="0" step="1" value={form.quantity}
+                      onChange={e => updateForm('quantity', e.target.value)} placeholder="1" />
+                  )}
                 </div>
+                <VariationEditor
+                  variations={form.variations}
+                  onChange={v => setForm({ ...form, variations: v })}
+                  images={form.images}
+                />
                 <MediaUploader
                   images={form.images}
                   onImagesChange={imgs => setForm({ ...form, images: imgs })}
@@ -834,9 +1013,17 @@ function AdminDashboard({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-serif text-sm md:text-base text-art-charcoal truncate">{artwork.title}</p>
-                      <p className="font-sans text-xs text-art-muted truncate">{artwork.category} · {artwork.dimensions}</p>
+                      <p className="font-sans text-xs text-art-muted truncate">{[sectionLabel(artwork.category), artwork.dimensions].filter(Boolean).join(' · ')}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="font-sans text-xs text-art-charcoal">{formatPrice(artwork.price)}</span>
+                        <span className="font-sans text-xs text-art-charcoal">
+                          {(artwork.variations?.length ?? 0) > 1 ? 'From ' : ''}{formatPrice(artwork.price)}
+                        </span>
+                        {(artwork.variations?.length ?? 0) > 0 && (
+                          <span className="font-sans text-[10px] text-art-muted">{artwork.variations!.length} variations</span>
+                        )}
+                        {artwork.quantity != null && (
+                          <span className="font-sans text-[10px] text-art-muted">stock {artwork.quantity}</span>
+                        )}
                         <span className={`font-sans text-[9px] tracking-widest uppercase px-1.5 py-0.5 ${statusColors[artwork.availability]}`}>
                           {artwork.availability}
                         </span>

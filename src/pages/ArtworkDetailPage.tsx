@@ -10,8 +10,9 @@ import { PageLoader } from '../components/ui/LoadingSpinner';
 import { useArtwork, useArtworks } from '../hooks/useArtworks';
 import { useCartStore } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
+import { sectionLabel } from '../utils/sections';
 import toast from 'react-hot-toast';
-import type { ArtworkVariation } from '../types';
+import { variationLabel } from '../utils/variations';
 
 export function ArtworkDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,7 +22,7 @@ export function ArtworkDetailPage() {
 
   const [activeImage, setActiveImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [selected, setSelected] = useState<Record<string, string>>({});
+  const [qty, setQty] = useState<Record<string, number>>({});
 
   if (loading) return <PageLoader />;
   if (!artwork) return (
@@ -37,13 +38,20 @@ export function ArtworkDetailPage() {
     .slice(0, 3);
 
   const variations = artwork.variations ?? [];
-  const propertyNames = Array.from(new Set(variations.flatMap(v => v.options.map(o => o.name))));
   const hasVariations = variations.length > 0;
-  const chosen: ArtworkVariation | undefined = hasVariations && propertyNames.every(n => selected[n])
-    ? variations.find(v => propertyNames.every(n => v.options.find(o => o.name === n)?.value === selected[n]))
-    : undefined;
-  const displayPrice = chosen ? chosen.price : artwork.price;
-  const stock = chosen ? chosen.quantity : artwork.quantity;
+  const singleStock = artwork.quantity ?? 1;
+  const singleQty = Math.min(qty['_single'] ?? 1, Math.max(1, singleStock));
+  const lines = hasVariations
+    ? variations.filter(v => (qty[v.id] ?? 0) > 0).map(v => ({ variation: v, quantity: qty[v.id] }))
+    : [];
+  const selectedCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+  const selectedTotal = lines.reduce((sum, l) => sum + l.variation.price * l.quantity, 0);
+  const optionTitle = `Choose your ${Array.from(new Set(variations.flatMap(v => v.options.map(o => o.name.toLowerCase())))).join(' / ')}`;
+
+  function setLineQty(id: string, next: number, max: number) {
+    setQty(prev => ({ ...prev, [id]: Math.max(0, Math.min(next, max)) }));
+  }
+
   const hasVideo = Boolean(artwork.video_url);
   const videoIndex = artwork.images.length;
   const showingVideo = hasVideo && activeImage === videoIndex;
@@ -54,28 +62,21 @@ export function ArtworkDetailPage() {
       ? `${extras.shipping.min_processing_days}–${extras.shipping.max_processing_days} business days`
       : null;
 
-  function optionImage(name: string, value: string) {
-    return variations.find(v => v.image && v.options.some(o => o.name === name && o.value === value))?.image;
-  }
-
   function showImage(url?: string) {
     const index = url ? artwork!.images.indexOf(url) : -1;
     if (index >= 0) setActiveImage(index);
   }
 
-  function optionAvailable(name: string, value: string) {
-    return variations.some(v =>
-      v.quantity > 0 &&
-      v.options.some(o => o.name === name && o.value === value) &&
-      Object.entries(selected).every(([n, val]) => n === name || v.options.find(o => o.name === n)?.value === val)
-    );
-  }
-
   function handleAddToCart() {
     if (artwork!.availability !== 'available') return;
-    if (hasVariations && !chosen) { toast.error(`Please select ${propertyNames.join(' and ')}.`); return; }
-    if (chosen && chosen.quantity < 1) { toast.error('That option is sold out.'); return; }
-    addItem(artwork!, chosen);
+    if (hasVariations) {
+      if (lines.length === 0) { toast.error('Choose at least one design.'); return; }
+      lines.forEach(l => addItem(artwork!, l.variation, l.quantity));
+      toast.success(`${selectedCount} ${selectedCount === 1 ? 'item' : 'items'} added to your collection.`);
+      setQty({});
+      return;
+    }
+    addItem(artwork!, undefined, singleQty);
     toast.success(`"${artwork!.title}" added to your collection.`);
   }
 
@@ -168,7 +169,7 @@ export function ArtworkDetailPage() {
               <div className="space-y-6 md:space-y-8 md:sticky md:top-32 md:self-start">
                 {/* Category */}
                 <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
-                  {[artwork.category.replace('-', ' '), artwork.year].filter(Boolean).join(' · ')}
+                  {[sectionLabel(artwork.category), artwork.year].filter(Boolean).join(' · ')}
                 </p>
 
                 {/* Title */}
@@ -180,7 +181,7 @@ export function ArtworkDetailPage() {
                 <div className="flex items-center gap-4">
                   {artwork.availability === 'available' ? (
                     <p className="font-sans text-2xl text-art-charcoal">
-                      {hasVariations && !chosen && variations.length > 1 ? 'From ' : ''}{formatPrice(displayPrice)}
+                      {variations.length > 1 ? 'From ' : ''}{formatPrice(artwork.price)}
                     </p>
                   ) : (
                     <p className="font-sans text-lg text-art-muted uppercase tracking-widest text-sm">
@@ -203,40 +204,40 @@ export function ArtworkDetailPage() {
                   {artwork.description}
                 </p>
 
-                {/* Variations */}
+                {/* Designs / variations — pick any quantity of each */}
                 {hasVariations && artwork.availability === 'available' && (
-                  <div className="space-y-5 border-t border-art-pale pt-6">
-                    {propertyNames.map(name => {
-                      const values = Array.from(new Set(
-                        variations.map(v => v.options.find(o => o.name === name)?.value).filter(Boolean) as string[]
-                      ));
+                  <div className="space-y-3 border-t border-art-pale pt-6">
+                    <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">{optionTitle}</p>
+                    {variations.map(v => {
+                      const q = qty[v.id] ?? 0;
+                      const out = v.quantity < 1;
                       return (
-                        <div key={name}>
-                          <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-2">{name}</p>
-                          <div className="flex flex-wrap gap-2">
-                            {values.map(value => {
-                              const active = selected[name] === value;
-                              const available = optionAvailable(name, value);
-                              return (
-                                <button
-                                  key={value}
-                                  type="button"
-                                  onClick={() => { setSelected(prev => ({ ...prev, [name]: active ? '' : value })); if (!active) showImage(optionImage(name, value)); }}
-                                  className={`font-sans text-xs border transition-colors flex items-center gap-2 ${optionImage(name, value) ? 'p-1 pr-3' : 'px-4 py-2'} ${
-                                    active
-                                      ? 'border-art-charcoal bg-art-charcoal text-art-white'
-                                      : available
-                                        ? 'border-art-light text-art-charcoal hover:border-art-charcoal'
-                                        : 'border-art-pale text-art-light line-through'
-                                  }`}
-                                >
-                                  {optionImage(name, value) && (
-                                    <img src={optionImage(name, value)} alt="" className="w-9 h-9 object-cover" />
-                                  )}
-                                  {value}
-                                </button>
-                              );
-                            })}
+                        <div
+                          key={v.id}
+                          className={`flex items-center gap-3 border p-2.5 transition-colors ${
+                            q > 0 ? 'border-art-charcoal' : 'border-art-pale'
+                          } ${out ? 'opacity-50' : ''}`}
+                        >
+                          {v.image && (
+                            <button type="button" onClick={() => showImage(v.image)} aria-label={`Show ${variationLabel(v)}`}
+                              className="w-14 h-14 shrink-0 overflow-hidden bg-cream-100">
+                              <img src={v.image} alt="" className="w-full h-full object-cover" />
+                            </button>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-sans text-sm text-art-charcoal truncate">{variationLabel(v)}</p>
+                            <p className="font-sans text-xs text-art-muted mt-0.5">
+                              {formatPrice(v.price)} · {out ? 'Sold out' : v.quantity <= 5 ? `Only ${v.quantity} left` : 'In stock'}
+                            </p>
+                          </div>
+                          <div className="inline-flex items-center border border-art-pale shrink-0">
+                            <button type="button" disabled={out || q < 1}
+                              onClick={() => setLineQty(v.id, q - 1, v.quantity)}
+                              aria-label="Decrease" className="w-8 h-8 text-art-muted hover:text-art-charcoal disabled:opacity-30">−</button>
+                            <span className="w-7 text-center font-sans text-sm text-art-charcoal">{q}</span>
+                            <button type="button" disabled={out || q >= v.quantity}
+                              onClick={() => setLineQty(v.id, q + 1, v.quantity)}
+                              aria-label="Increase" className="w-8 h-8 text-art-muted hover:text-art-charcoal disabled:opacity-30">+</button>
                           </div>
                         </div>
                       );
@@ -244,10 +245,23 @@ export function ArtworkDetailPage() {
                   </div>
                 )}
 
-                {artwork.availability === 'available' && stock != null && (!hasVariations || chosen) && (
-                  <p className="font-sans text-xs text-art-muted">
-                    {stock < 1 ? 'Sold out' : stock === 1 ? 'Only 1 available' : stock <= 5 ? `Only ${stock} available` : 'In stock'}
-                  </p>
+                {!hasVariations && artwork.availability === 'available' && (
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="font-sans text-xs text-art-muted">
+                      {singleStock < 1 ? 'Sold out' : singleStock === 1 ? 'Only 1 available' : singleStock <= 5 ? `Only ${singleStock} available` : 'In stock'}
+                    </p>
+                    {singleStock > 1 && (
+                      <div className="inline-flex items-center border border-art-pale">
+                        <button type="button" disabled={singleQty <= 1}
+                          onClick={() => setLineQty('_single', singleQty - 1, singleStock)}
+                          aria-label="Decrease" className="w-8 h-8 text-art-muted hover:text-art-charcoal disabled:opacity-30">−</button>
+                        <span className="w-7 text-center font-sans text-sm text-art-charcoal">{singleQty}</span>
+                        <button type="button" disabled={singleQty >= singleStock}
+                          onClick={() => setLineQty('_single', singleQty + 1, singleStock)}
+                          aria-label="Increase" className="w-8 h-8 text-art-muted hover:text-art-charcoal disabled:opacity-30">+</button>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Specs */}
@@ -290,7 +304,7 @@ export function ArtworkDetailPage() {
                       className="w-full"
                     >
                       <ShoppingBag size={16} strokeWidth={1.5} />
-                      Add to Collection
+                      {selectedCount > 0 ? `Add ${selectedCount} to Collection · ${formatPrice(selectedTotal)}` : 'Add to Collection'}
                     </Button>
                   ) : (
                     <div className="flex flex-col gap-3">

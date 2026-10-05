@@ -56,3 +56,6 @@ ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tax_amount numeric(10,2);
 CREATE UNIQUE INDEX IF NOT EXISTS orders_stripe_session_key ON public.orders (stripe_checkout_session_id) WHERE stripe_checkout_session_id IS NOT NULL;
 -- Orders are now created server-side by the Stripe webhook (service role). Remove public inserts:
 DROP POLICY IF EXISTS "Public can insert orders" ON public.orders;
+
+-- 8. Free-text sections: allow any category slug (mandalas, hearts, ornaments, ...)
+ALTER TABLE public.artworks DROP CONSTRAINT IF EXISTS artworks_category_check;
