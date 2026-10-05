@@ -9,10 +9,10 @@ export function ArtistIntro() {
           {/* Image */}
           <FadeIn direction="left">
             <div className="relative">
-              <div className="aspect-[4/3] sm:aspect-[4/5] overflow-hidden bg-cream-200">
+              <div className="aspect-[1663/2000] overflow-hidden bg-cream-200">
                 <img
-                  src="https://picsum.photos/seed/artist-intro/800/1000"
-                  alt="The artist at work"
+                  src="/artist.jpg"
+                  alt="The artist with her hand-painted mandala artworks"
                   className="w-full h-full object-cover"
                 />
               </div>
