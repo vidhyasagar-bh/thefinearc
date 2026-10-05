@@ -21,11 +21,9 @@ export function Hero() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="font-serif text-4xl leading-[1.1] md:text-5xl lg:text-6xl font-light text-white max-w-2xl"
+            className="font-serif text-[1.65rem] leading-tight sm:text-3xl md:text-4xl lg:text-5xl font-light text-white whitespace-nowrap"
           >
-            Art that stays
-            <br />
-            <em>with you.</em>
+            Art that stays <em>with you.</em>
           </motion.h1>
 
           <motion.p
