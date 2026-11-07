@@ -13,6 +13,10 @@ import { CartPage } from './pages/CartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { CheckoutSuccessPage } from './pages/CheckoutSuccessPage';
 import { AdminPage } from './pages/AdminPage';
+import { ComingSoonPage } from './pages/ComingSoonPage';
+
+// Coming-soon mode is ON unless VITE_COMING_SOON is set to "false" (then redeploy).
+const COMING_SOON = import.meta.env.VITE_COMING_SOON !== 'false';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -72,17 +76,27 @@ export default function App() {
         />
         <ScrollToTop />
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/gallery" element={<GalleryPage />} />
-          <Route path="/artwork/:id" element={<ArtworkDetailPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/commissions" element={<CommissionsPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="*" element={<NotFound />} />
+          {COMING_SOON ? (
+            <>
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
+              <Route path="*" element={<ComingSoonPage />} />
+            </>
+          ) : (
+            <>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/gallery" element={<GalleryPage />} />
+              <Route path="/artwork/:id" element={<ArtworkDetailPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/commissions" element={<CommissionsPage />} />
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="*" element={<NotFound />} />
+            </>
+          )}
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
