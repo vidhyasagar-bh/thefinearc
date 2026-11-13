@@ -14,8 +14,8 @@ import { formatPrice, formatDate } from '../utils/format';
 import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
 import { supabase, supabaseConfigured } from '../lib/supabase';
-import { mockArtworks } from '../lib/mockData';
-import { fetchEtsyListings, etsyListingToPayload, etsyNewListingDefaults, etsyDiagnosticLine, etsyDiagnosticsReport, type EtsyListing } from '../lib/etsy';
+import { adminApi } from '../lib/adminApi';
+import { fetchEtsyListings, etsyListingToPayload, etsyDiagnosticLine, etsyDiagnosticsReport, type EtsyListing } from '../lib/etsy';
 
 type AdminTab = 'artworks' | 'orders' | 'commissions' | 'analytics';
 
@@ -106,10 +106,12 @@ function MediaUploader({
 
   async function uploadFile(file: File, bucket: string): Promise<string> {
     const ext = file.name.split('.').pop() ?? 'bin';
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await supabase.storage.from(bucket).upload(path, file);
+    const { path, token, publicUrl } = await adminApi<{ path: string; token: string; publicUrl: string }>(
+      'upload.sign', { bucket, ext }
+    );
+    const { error } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, file);
     if (error) throw error;
-    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    return publicUrl;
   }
 
   async function handleImageFiles(files: FileList | null) {
@@ -119,7 +121,7 @@ function MediaUploader({
     try {
       const urls = await Promise.all(Array.from(files).map(f => uploadFile(f, 'artwork-images')));
       onImagesChange([...images.filter(Boolean), ...urls]);
-    } catch { toast.error('Image upload failed.'); }
+    } catch (err) { toast.error(`Image upload failed: ${(err as Error).message}`); }
     setUploading(false);
   }
 
@@ -130,7 +132,7 @@ function MediaUploader({
     try {
       const url = await uploadFile(files[0], 'artwork-videos');
       onVideoChange(url);
-    } catch { toast.error('Video upload failed.'); }
+    } catch (err) { toast.error(`Video upload failed: ${(err as Error).message}`); }
     setUploading(false);
   }
 
@@ -354,25 +356,15 @@ function EtsyImportModal({
   }
 
   async function handleImport(listing: EtsyListing) {
-    if (!supabaseConfigured) { toast.error('Connect Supabase to import artworks.'); return; }
     setImporting(prev => new Set(prev).add(listing.listing_id));
     try {
-      const payload = etsyListingToPayload(listing);
-      const { data: existing, error: lookupError } = await supabase
-        .from('artworks').select('id').eq('etsy_listing_id', listing.listing_id).maybeSingle();
-      if (lookupError) throw lookupError;
       const chosen = sectionSlug(sections[listing.listing_id] ?? defaultSection);
-      if (!existing && !chosen) {
-        toast.error('Type a section for this listing first (for example hearts or mandalas).');
-        setImporting(prev => { const s = new Set(prev); s.delete(listing.listing_id); return s; });
-        return;
-      }
-      const { error } = existing
-        ? await supabase.from('artworks').update({ ...payload, ...(chosen ? { category: chosen } : {}) }).eq('id', existing.id)
-        : await supabase.from('artworks').insert({ ...etsyNewListingDefaults(chosen), ...payload });
-      if (error) throw error;
+      const result = await adminApi<{ updated: boolean }>('artworks.etsy', {
+        payload: etsyListingToPayload(listing),
+        category: chosen,
+      });
       setImported(prev => new Set(prev).add(listing.listing_id));
-      toast.success(`"${listing.title.slice(0, 40)}" ${existing ? 'updated' : 'imported'}.`);
+      toast.success(`"${listing.title.slice(0, 40)}" ${result.updated ? 'updated' : 'imported'}.`);
       onImported();
     } catch (err) {
       toast.error((err as { message?: string })?.message ?? 'Import failed.');
@@ -541,13 +533,20 @@ function EtsyImportModal({
 // ── Login ──────────────────────────────────────────────────────────────────────
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const correct = import.meta.env.VITE_ADMIN_PASSWORD || 'admin';
-    if (password === correct) { sessionStorage.setItem('admin_auth', '1'); onSuccess(); }
-    else { setError(true); setPassword(''); }
+    setBusy(true);
+    try {
+      await adminApi('login', { password });
+      onSuccess();
+    } catch (err) {
+      setError((err as Error).message);
+      setPassword('');
+    }
+    setBusy(false);
   }
 
   return (
@@ -561,10 +560,10 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-1">
             <Input label="Password" type="password" value={password}
-              onChange={e => { setPassword(e.target.value); setError(false); }} required />
-            {error && <p className="font-sans text-xs text-red-500 pt-1">Incorrect password.</p>}
+              onChange={e => { setPassword(e.target.value); setError(''); }} required />
+            {error && <p className="font-sans text-xs text-red-500 pt-1">{error}</p>}
           </div>
-          <Button type="submit" size="lg" className="w-full">Enter Dashboard</Button>
+          <Button type="submit" size="lg" className="w-full" disabled={busy}>{busy ? 'Checking…' : 'Enter Dashboard'}</Button>
         </form>
       </div>
     </div>
@@ -573,7 +572,14 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
 
 // ── Page shell ─────────────────────────────────────────────────────────────────
 export function AdminPage() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem('admin_auth') === '1');
+  const [authed, setAuthed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    adminApi<{ authed: boolean }>('session').then(d => setAuthed(d.authed)).catch(() => setAuthed(false));
+    const onUnauthorized = () => { setAuthed(false); toast.error('Session expired. Please sign in again.'); };
+    window.addEventListener('admin-unauthorized', onUnauthorized);
+    return () => window.removeEventListener('admin-unauthorized', onUnauthorized);
+  }, []);
   const [tab, setTab] = useState<AdminTab>('artworks');
   const navigate = useNavigate();
 
@@ -592,9 +598,10 @@ export function AdminPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
+  if (authed === null) return <PageLoader />;
   if (!authed) return <AdminLogin onSuccess={() => { setAuthed(true); window.scrollTo({ top: 0, behavior: 'instant' }); }} />;
 
-  function signOut() { sessionStorage.removeItem('admin_auth'); navigate('/'); }
+  function signOut() { adminApi('logout').catch(() => {}).finally(() => { setAuthed(false); navigate('/'); }); }
 
   return (
     <AdminDashboard
@@ -652,43 +659,40 @@ function AdminDashboard({
   // ── data fetchers ────────────────────────────────────────────────────────────
   const fetchArtworks = useCallback(async () => {
     setArtworksLoading(true);
-    if (!supabaseConfigured) { setArtworks(mockArtworks); setArtworksLoading(false); return; }
-    const { data, error } = await supabase.from('artworks').select('*').order('created_at', { ascending: false });
-    if (error) toast.error('Failed to load artworks.');
-    else setArtworks((data as Artwork[]) || []);
+    try {
+      const { data } = await adminApi<{ data: Artwork[] }>('artworks.list');
+      setArtworks(data || []);
+    } catch (err) { toast.error(`Failed to load artworks: ${(err as Error).message}`); }
     setArtworksLoading(false);
   }, [setArtworks, setArtworksLoading]);
 
   const fetchOrders = useCallback(async () => {
-    if (!supabaseConfigured) return;
     setOrdersLoading(true);
-    const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-    if (error) toast.error('Failed to load orders.');
-    else setOrders((data as Order[]) || []);
+    try {
+      const { data } = await adminApi<{ data: Order[] }>('orders.list');
+      setOrders(data || []);
+    } catch (err) { toast.error(`Failed to load orders: ${(err as Error).message}`); }
     setOrdersLoading(false);
   }, [setOrders, setOrdersLoading]);
 
   const fetchCommissions = useCallback(async () => {
-    if (!supabaseConfigured) return;
     setCommissionsLoading(true);
-    const { data, error } = await supabase.from('commission_inquiries').select('*').order('created_at', { ascending: false });
-    if (error) toast.error('Failed to load commissions.');
-    else setCommissions((data as CommissionInquiry[]) || []);
+    try {
+      const { data } = await adminApi<{ data: CommissionInquiry[] }>('commissions.list');
+      setCommissions(data || []);
+    } catch (err) { toast.error(`Failed to load commissions: ${(err as Error).message}`); }
     setCommissionsLoading(false);
   }, [setCommissions, setCommissionsLoading]);
 
   const fetchAnalytics = useCallback(async () => {
-    if (!supabaseConfigured) return;
     setAnalyticsLoading(true);
     try {
-      const [ar, or_, cr] = await Promise.all([
-        supabase.from('artworks').select('availability'),
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
-        supabase.from('commission_inquiries').select('status'),
-      ]);
-      const aRows = (ar.data  || []) as { availability: string }[];
-      const oRows = (or_.data || []) as Order[];
-      const cRows = (cr.data  || []) as { status: string }[];
+      const raw = await adminApi<{
+        artworks: { availability: string }[]; orders: Order[]; commissions: { status: string }[];
+      }>('analytics');
+      const aRows = raw.artworks || [];
+      const oRows = raw.orders || [];
+      const cRows = raw.commissions || [];
       setAnalytics({
         totalRevenue: oRows.reduce((s, o) => s + Number(o.total || 0), 0),
         totalOrders: oRows.length,
@@ -706,7 +710,7 @@ function AdminDashboard({
         },
         recentOrders: oRows.slice(0, 5),
       });
-    } catch { toast.error('Failed to load analytics.'); }
+    } catch (err) { toast.error(`Failed to load analytics: ${(err as Error).message}`); }
     setAnalyticsLoading(false);
   }, [setAnalytics, setAnalyticsLoading]);
 
@@ -758,12 +762,7 @@ function AdminDashboard({
         year: parseInt(form.year) || null,
         quantity, variations,
       };
-      if (supabaseConfigured) {
-        const { error } = editingId
-          ? await supabase.from('artworks').update(payload).eq('id', editingId)
-          : await supabase.from('artworks').insert(payload);
-        if (error) throw error;
-      }
+      await adminApi('artworks.save', { id: editingId, payload });
       toast.success(editingId ? 'Artwork updated.' : 'Artwork added.');
       setShowForm(false); setEditingId(null); setForm(emptyArtwork);
       fetchArtworks();
@@ -776,13 +775,10 @@ function AdminDashboard({
   async function handleDelete(id: string) {
     if (!confirm('Delete this artwork? This cannot be undone.')) return;
     try {
-      if (supabaseConfigured) {
-        const { error } = await supabase.from('artworks').delete().eq('id', id);
-        if (error) throw error;
-      }
+      await adminApi('artworks.delete', { id });
       toast.success('Artwork deleted.');
       setArtworks(artworks.filter(a => a.id !== id));
-    } catch { toast.error('Failed to delete.'); }
+    } catch (err) { toast.error(`Failed to delete: ${(err as Error).message}`); }
   }
 
   function startEdit(artwork: Artwork) {
@@ -803,11 +799,9 @@ function AdminDashboard({
 
   // ── status updates ───────────────────────────────────────────────────────────
   async function updateCommissionStatus(id: string, status: string) {
-    if (!supabaseConfigured) return;
     try {
       const commission = commissions.find(c => c.id === id);
-      const { error } = await supabase.from('commission_inquiries').update({ status }).eq('id', id);
-      if (error) throw error;
+      await adminApi('commissions.update', { id, status });
       setCommissions(commissions.map(c =>
         c.id === id ? { ...c, status: status as CommissionInquiry['status'] } : c
       ));
@@ -818,17 +812,15 @@ function AdminDashboard({
         );
       }
       toast.success('Status updated.');
-    } catch { toast.error('Failed to update status.'); }
+    } catch (err) { toast.error(`Failed to update status: ${(err as Error).message}`); }
   }
 
   async function updateOrderFulfillment(id: string, fulfillment_status: string) {
-    if (!supabaseConfigured) return;
     try {
-      const { error } = await supabase.from('orders').update({ fulfillment_status }).eq('id', id);
-      if (error) throw error;
+      await adminApi('orders.update', { id, fulfillment_status });
       setOrders(orders.map(o => o.id === id ? { ...o, fulfillment_status } : o));
       toast.success('Order updated.');
-    } catch { toast.error('Failed to update order.'); }
+    } catch (err) { toast.error(`Failed to update order: ${(err as Error).message}`); }
   }
 
   // ── tab config ───────────────────────────────────────────────────────────────

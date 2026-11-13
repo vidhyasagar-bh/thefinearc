@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { hasServiceRole } from './_lib/supabase.js';
 import { exchangeCode, isConnected } from './_lib/etsyAuth.js';
+import { isAdmin } from './_lib/adminAuth.js';
 
 const SCOPES = 'listings_r shops_r';
 const COOKIE = 'etsy_pkce';
@@ -24,6 +25,10 @@ export default async function handler(req, res) {
   if (!hasServiceRole()) {
     if (action === 'status') return res.status(200).json({ connected: false, error: 'SUPABASE_SERVICE_ROLE_KEY is not set' });
     return res.status(500).send('SUPABASE_SERVICE_ROLE_KEY is not set on the server.');
+  }
+
+  if (action === 'status' || action === 'start') {
+    if (!isAdmin(req)) return res.status(401).send('Not signed in.');
   }
 
   if (action === 'status') {

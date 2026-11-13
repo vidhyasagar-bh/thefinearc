@@ -1,5 +1,6 @@
 import { sb, hasServiceRole } from './_lib/supabase.js';
 import { deliver } from './_lib/mailer.js';
+import { isAdmin } from './_lib/adminAuth.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -14,6 +15,8 @@ export default async function handler(req, res) {
   if (!['commission_inquiry', 'commission_accepted', 'commission_declined'].includes(type) || !EMAIL.test(email)) {
     return res.status(400).json({ error: 'Invalid request.' });
   }
+
+  if (type !== 'commission_inquiry' && !isAdmin(req)) return res.status(401).json({ error: 'Not signed in.' });
 
   try {
     const [row] = await sb(

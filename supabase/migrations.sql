@@ -70,3 +70,47 @@ CREATE TABLE IF NOT EXISTS public.etsy_auth (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.etsy_auth ENABLE ROW LEVEL SECURITY;
+
+-- 10. LOCK DOWN THE DATABASE.
+-- Run this ONLY after the admin works through the server (ADMIN_PASSWORD + SUPABASE_SERVICE_ROLE_KEY set in Vercel).
+-- From now on the public browser key can only: read artworks, and submit the commission, contact and newsletter forms.
+-- Everything else (artwork edits, orders, enquiries, uploads) goes through the server with the service role.
+DO $$
+DECLARE
+  r record;
+  t text;
+BEGIN
+  -- Remove every existing policy on these tables (including any loosened by hand), then recreate the safe ones
+  FOR r IN
+    SELECT policyname, tablename FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN ('artworks', 'orders', 'commission_inquiries', 'contact_messages', 'newsletter_subscribers', 'etsy_auth')
+  LOOP
+    EXECUTE format('DROP POLICY %I ON public.%I', r.policyname, r.tablename);
+  END LOOP;
+
+  FOREACH t IN ARRAY ARRAY['artworks', 'orders', 'commission_inquiries', 'contact_messages', 'newsletter_subscribers', 'etsy_auth']
+  LOOP
+    IF to_regclass('public.' || t) IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    END IF;
+  END LOOP;
+
+  CREATE POLICY "Public can read artworks" ON public.artworks FOR SELECT USING (true);
+  CREATE POLICY "Public can submit commission inquiries" ON public.commission_inquiries FOR INSERT WITH CHECK (true);
+  CREATE POLICY "Public can submit contact messages" ON public.contact_messages FOR INSERT WITH CHECK (true);
+  IF to_regclass('public.newsletter_subscribers') IS NOT NULL THEN
+    CREATE POLICY "Public can subscribe to the newsletter" ON public.newsletter_subscribers FOR INSERT WITH CHECK (true);
+  END IF;
+
+  -- Storage: nobody can write with the public key; the two artwork buckets stay publicly readable
+  FOR r IN
+    SELECT policyname FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects' AND cmd IN ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+  LOOP
+    EXECUTE format('DROP POLICY %I ON storage.objects', r.policyname);
+  END LOOP;
+  DROP POLICY IF EXISTS "Public can view artwork media" ON storage.objects;
+  CREATE POLICY "Public can view artwork media" ON storage.objects
+    FOR SELECT USING (bucket_id IN ('artwork-images', 'artwork-videos'));
+END $$;

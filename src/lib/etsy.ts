@@ -331,13 +331,3 @@ export function etsyListingToPayload(listing: EtsyListing) {
     etsy_data: extras,
   };
 }
-
-// Fields only set when a listing is first imported — a re-import never overwrites these manual edits.
-export function etsyNewListingDefaults(category: string) {
-  return {
-    story: null as null,
-    category,
-    framing: null as null,
-    year: new Date().getFullYear(),
-  };
-}

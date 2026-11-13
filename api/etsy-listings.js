@@ -1,10 +1,12 @@
 import { getAccessToken } from './_lib/etsyAuth.js';
+import { requireAdmin } from './_lib/adminAuth.js';
 
 const RESOURCES = new Set(['images', 'videos', 'inventory', 'variation-images']);
 // These need an OAuth access token (scope listings_r), not just the API key
 const NEEDS_TOKEN = new Set(['inventory', 'variation-images']);
 
 export default async function handler(req, res) {
+  if (!requireAdmin(req, res)) return;
   const apiKey = req.headers['x-etsy-key'] || process.env.ETSY_API_KEY;
   const shopId = req.query.shopId || process.env.ETSY_SHOP_ID;
 

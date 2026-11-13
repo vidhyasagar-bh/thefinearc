@@ -2,6 +2,15 @@ const url = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const key = () =>
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
+export const supabaseBase = () => url();
+export function authHeaders() {
+  return {
+    apikey: key(),
+    // New-style sb_ keys are not JWTs and must not be sent as a Bearer token
+    ...(key()?.startsWith('sb_') ? {} : { Authorization: `Bearer ${key()}` }),
+  };
+}
+
 export const hasServiceRole = () => Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 export async function sb(path, init = {}) {
