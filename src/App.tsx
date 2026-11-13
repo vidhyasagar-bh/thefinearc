@@ -15,8 +15,11 @@ import { CheckoutSuccessPage } from './pages/CheckoutSuccessPage';
 import { AdminPage } from './pages/AdminPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 
-// Coming-soon mode is ON unless VITE_COMING_SOON is set to "false" (then redeploy).
-const COMING_SOON = import.meta.env.VITE_COMING_SOON !== 'false';
+// Coming Soon shows only on these public domains; every other address (the vercel.app URL, previews,
+// localhost) shows the full site. Set VITE_COMING_SOON to "false" to turn Coming Soon off everywhere.
+const COMING_SOON_HOSTS = ['thefinearcbyleela.com', 'www.thefinearcbyleela.com'];
+const COMING_SOON =
+  import.meta.env.VITE_COMING_SOON !== 'false' && COMING_SOON_HOSTS.includes(window.location.hostname);
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
