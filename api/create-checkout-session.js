@@ -113,7 +113,15 @@ export default async function handler(req, res) {
       metadata,
       return_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     });
-    return res.status(200).json({ client_secret: session.client_secret });
+    const clientSecret = session.client_secret;
+    if (!clientSecret) {
+      console.error('[checkout] session created without client_secret', session.id, session.ui_mode, Object.keys(session).join(','));
+      return res.status(502).json({
+        error: 'Could not start checkout. Please try again.',
+        detail: `Stripe created the session (${session.id}, ui_mode ${session.ui_mode}) but sent no client secret. Fields returned: ${Object.keys(session).join(', ')}`.slice(0, 400),
+      });
+    }
+    return res.status(200).json({ client_secret: clientSecret });
   } catch (err) {
     console.error('[checkout] failed', err.type, err.code, err.param, err.message);
     // Stripe's own message (for example which parameter it rejected) contains nothing sensitive and speeds up fixing setup problems

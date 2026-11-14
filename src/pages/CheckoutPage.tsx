@@ -90,7 +90,7 @@ export function CheckoutPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.client_secret) {
         console.error('Checkout error:', res.status, data);
-        throw new Error(data.detail ? `${data.error} (${data.detail})` : data.error || 'Could not start checkout.');
+        throw new Error(data.detail ? `${data.error} (${data.detail})` : data.error || `Could not start checkout (server replied ${res.status}).`);
       }
       setClientSecret(data.client_secret);
     } catch (err) {
