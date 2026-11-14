@@ -31,6 +31,13 @@ export function AddressSuggestInput({ value, countries, onChange, onPick }: Prop
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!API_KEY) {
+      console.info('[address suggestions] off: VITE_GEOAPIFY_KEY is not set in this build (add it in Vercel, then redeploy).');
+      return;
+    }
+  }, []);
+
+  useEffect(() => {
     if (!API_KEY) return;
     if (skipNext.current) { skipNext.current = false; return; }
     if (value.trim().length < 4) { setItems([]); setOpen(false); return; }
@@ -41,8 +48,12 @@ export function AddressSuggestInput({ value, countries, onChange, onPick }: Prop
         const filter = `countrycode:${countries.map(c => c.toLowerCase()).join(',')}`;
         const url = `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(value)}&filter=${filter}&limit=5&lang=en&format=json&apiKey=${API_KEY}`;
         const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn('[address suggestions] Geoapify refused the request:', res.status, (await res.text()).slice(0, 200));
+          return;
+        }
         const data = await res.json();
+        if (!Array.isArray(data.results) || data.results.length === 0) console.info('[address suggestions] no matches for', value);
         const found: Suggestion[] = (data.results ?? [])
           .filter((r: any) => r.street)
           .map((r: any) => ({
