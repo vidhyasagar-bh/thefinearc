@@ -21,6 +21,7 @@ export function validateAddress(raw, countries) {
   const a = {
     name: String(raw?.name || '').trim().slice(0, 80),
     street1: String(raw?.street1 || '').trim().slice(0, 100),
+    street2: String(raw?.street2 || '').trim().slice(0, 100),
     city: String(raw?.city || '').trim().slice(0, 60),
     state: String(raw?.state || '').trim().toUpperCase().slice(0, 40),
     zip: String(raw?.zip || '').trim().slice(0, 12),
@@ -74,6 +75,7 @@ export async function quoteRates({ address, parcel }) {
     address_to: {
       name: address.name || 'Customer',
       street1: address.street1,
+      ...(address.street2 ? { street2: address.street2 } : {}),
       city: address.city,
       state: address.state,
       zip: address.zip,
