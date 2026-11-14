@@ -96,22 +96,24 @@ export default async function handler(req, res) {
       allowedCountries = [checked.address.country];
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-03-25.dahlia' });
     const proto = req.headers['x-forwarded-proto'] || 'https';
     const origin = process.env.SITE_URL || `${proto}://${req.headers.host}`;
     const session = await stripe.checkout.sessions.create({
+      ui_mode: 'form',
       mode: 'payment',
       line_items: lineItems,
       automatic_tax: { enabled: true },
       billing_address_collection: 'auto',
       shipping_address_collection: { allowed_countries: allowedCountries },
       ...(shippingOptions ? { shipping_options: shippingOptions } : {}),
-      phone_number_collection: { enabled: true },
+      phone_number_collection: { enabled: false },
+      submit_type: 'auto',
+      integration_identifier: 'custom_embedded_web_0001',
       metadata,
-      success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/cart`,
+      return_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     });
-    return res.status(200).json({ url: session.url });
+    return res.status(200).json({ client_secret: session.client_secret });
   } catch (err) {
     console.error('[checkout] failed', err);
     return res.status(500).json({ error: 'Could not start checkout. Please try again.' });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { FadeIn } from '../components/ui/FadeIn';
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { Lock } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { US_STATES } from '../utils/usStates';
+import { EmbeddedPaymentForm } from '../components/checkout/EmbeddedPaymentForm';
 
 interface Rate { provider: string; service: string; token: string; amount: number; days: number | null }
 interface Address { street1: string; city: string; state: string; zip: string; country: string }
@@ -26,6 +27,7 @@ export function CheckoutPage() {
   const [rates, setRates] = useState<Rate[] | null>(null);
   const [selected, setSelected] = useState<string>('');
   const [quoting, setQuoting] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/shipping-rates')
@@ -70,6 +72,8 @@ export function CheckoutPage() {
     setQuoting(false);
   }
 
+  const onPaymentError = useCallback((message: string) => toast.error(message), []);
+
   async function handlePay() {
     if (items.length === 0) { navigate('/cart'); return; }
     if (config?.enabled && !rate) { toast.error('Choose a shipping option first.'); return; }
@@ -84,12 +88,12 @@ export function CheckoutPage() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout.');
-      window.location.assign(data.url);
+      if (!res.ok || !data.client_secret) throw new Error(data.error || 'Could not start checkout.');
+      setClientSecret(data.client_secret);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
-      setProcessing(false);
     }
+    setProcessing(false);
   }
 
   if (items.length === 0) {
@@ -121,6 +125,7 @@ export function CheckoutPage() {
                 <div className="space-y-8">
                   {config?.enabled && (
                     <form onSubmit={getRates} className="space-y-6">
+                      <fieldset disabled={Boolean(clientSecret)} className="space-y-6 border-0 p-0 m-0 min-w-0">
                       <h2 className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Where should we ship?</h2>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div className="sm:col-span-2">
@@ -183,24 +188,40 @@ export function CheckoutPage() {
                           </p>
                         </div>
                       )}
+                      </fieldset>
                     </form>
                   )}
 
                   <div className="space-y-4">
                     <h2 className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Payment</h2>
-                    <div className="border border-art-pale p-5 space-y-3">
-                      <p className="font-sans text-sm text-art-charcoal">
-                        You will enter your card details {config?.enabled ? '' : 'and shipping address '}on Stripe's secure payment page.
-                      </p>
-                      <p className="font-sans text-xs text-art-muted leading-relaxed">
-                        Sales tax, where it applies, is calculated automatically from your shipping address and shown before you pay.
-                      </p>
-                    </div>
+                    {clientSecret ? (
+                      <div className="space-y-4">
+                        <EmbeddedPaymentForm clientSecret={clientSecret} onError={onPaymentError} />
+                        <button
+                          type="button"
+                          onClick={() => setClientSecret(null)}
+                          className="font-sans text-xs text-art-muted hover:text-art-charcoal underline underline-offset-4 transition-colors"
+                        >
+                          Change shipping details
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="border border-art-pale p-5 space-y-3">
+                        <p className="font-sans text-sm text-art-charcoal">
+                          Your card details are entered securely with Stripe on the next step.
+                        </p>
+                        <p className="font-sans text-xs text-art-muted leading-relaxed">
+                          Sales tax, where it applies, is calculated automatically from your shipping address and shown before you pay.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <Button size="lg" onClick={handlePay} disabled={processing || config === null || (config.enabled && !rate)} className="w-full">
-                    <Lock size={14} strokeWidth={1.5} />
-                    {processing ? 'Redirecting…' : `Continue to payment · ${formatPrice(estimatedTotal, 'USD', config?.enabled && rate ? 2 : 0)}`}
-                  </Button>
+                  {!clientSecret && (
+                    <Button size="lg" onClick={handlePay} disabled={processing || config === null || (config.enabled && !rate)} className="w-full">
+                      <Lock size={14} strokeWidth={1.5} />
+                      {processing ? 'Preparing payment…' : `Continue to payment · ${formatPrice(estimatedTotal, 'USD', config?.enabled && rate ? 2 : 0)}`}
+                    </Button>
+                  )}
                 </div>
               </FadeIn>
             </div>
