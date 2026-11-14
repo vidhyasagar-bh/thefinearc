@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { sb } from './supabase.js';
 
 const SHIPPO_URL = 'https://api.goshippo.com/shipments/';
@@ -110,4 +111,42 @@ export async function quoteRates({ address, parcel }) {
     .filter(r => { const k = `${r.provider}|${r.token}`; if (seen.has(k)) return false; seen.add(k); return true; })
     .slice(0, 4);
   return rates;
+}
+
+// ── Signed quotes ─────────────────────────────────────────────────────────────
+// A quote is signed when it is shown, so checkout can trust the price the customer saw
+// without asking Shippo again (a second call can return a different list or fail).
+const QUOTE_TTL_MS = 30 * 60 * 1000;
+
+const signingKey = () =>
+  crypto.createHash('sha256').update(`shipping-quote:${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SHIPPO_API_KEY || ''}`).digest();
+
+// Ties a quote to this exact cart and address so it can't be reused for something else
+export function quoteFingerprint(lines, address) {
+  const cart = lines
+    .map(l => `${l.artworkId}:${l.variationId ?? ''}:${Math.max(1, Number(l.quantity) || 1)}`)
+    .sort()
+    .join('|');
+  const to = [address.street1, address.street2, address.city, address.state, address.zip, address.country]
+    .map(v => String(v ?? '').trim().toLowerCase()).join('|');
+  return `${cart}#${to}`;
+}
+
+function quoteMac(rate, exp, fingerprint) {
+  return crypto.createHmac('sha256', signingKey())
+    .update([rate.provider, rate.token, rate.service, Number(rate.amount).toFixed(2), exp, fingerprint].join('\n'))
+    .digest('base64url');
+}
+
+export function signRates(rates, fingerprint) {
+  const exp = Date.now() + QUOTE_TTL_MS;
+  return rates.map(r => ({ ...r, exp, sig: quoteMac(r, exp, fingerprint) }));
+}
+
+// Returns the rate as originally quoted, or null if it was altered, expired or belongs to a different cart/address
+export function verifyRate(rate, fingerprint) {
+  if (!rate || typeof rate.sig !== 'string' || !Number.isFinite(Number(rate.exp)) || Number(rate.exp) < Date.now()) return null;
+  const expected = quoteMac(rate, Number(rate.exp), fingerprint);
+  if (rate.sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(rate.sig), Buffer.from(expected))) return null;
+  return { provider: String(rate.provider), service: String(rate.service), token: String(rate.token), amount: Number(rate.amount), days: rate.days != null ? Number(rate.days) : null };
 }

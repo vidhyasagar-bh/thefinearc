@@ -12,7 +12,7 @@ import { US_STATES } from '../utils/usStates';
 import { EmbeddedPaymentForm } from '../components/checkout/EmbeddedPaymentForm';
 import { AddressSuggestInput, addressSuggestionsAvailable } from '../components/checkout/AddressSuggestInput';
 
-interface Rate { provider: string; service: string; token: string; amount: number; days: number | null }
+interface Rate { provider: string; service: string; token: string; amount: number; days: number | null; exp: number; sig: string }
 interface Address { name: string; street1: string; street2: string; city: string; state: string; zip: string; country: string }
 
 const selectClass =
@@ -98,12 +98,13 @@ export function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: cartLines,
-          ...(config?.enabled && rate ? { shipping: { address, rate: { provider: rate.provider, token: rate.token } } } : {}),
+          ...(config?.enabled && rate ? { shipping: { address, rate } } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.client_secret) {
         console.error('Checkout error:', res.status, data);
+        if (res.status === 409) { setRates(null); setSelected(''); } // quote expired or cart changed: ask for fresh prices
         throw new Error(data.detail ? `${data.error} (${data.detail})` : data.error || `Could not start checkout (server replied ${res.status}).`);
       }
       setClientSecret(data.client_secret);

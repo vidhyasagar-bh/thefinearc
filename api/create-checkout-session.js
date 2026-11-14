@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import { sb } from './_lib/supabase.js';
-import { shippingConfig, validateAddress, buildParcel, quoteRates } from './_lib/shipping.js';
+import { shippingConfig, validateAddress, quoteFingerprint, verifyRate } from './_lib/shipping.js';
 
 const ID = /^[0-9a-zA-Z-]{1,64}$/;
 
@@ -64,20 +64,16 @@ export default async function handler(req, res) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-03-25.dahlia' });
 
-    // Shipping: re-quote on the server so the customer can't pick a price the carrier didn't offer
+    // Shipping: the price must be one we quoted for exactly this cart and address (signed when it was shown)
     const cfg = shippingConfig();
     let customerId;
     let shippingOptions;
     let allowedCountries = cfg.countries;
     if (cfg.enabled) {
       const checked = validateAddress(req.body?.shipping?.address, cfg.countries);
-      const choice = req.body?.shipping?.rate;
-      if (checked.error || !choice?.provider || !choice?.token) {
-        return res.status(400).json({ error: checked.error || 'Please choose a shipping option.' });
-      }
-      const rates = await quoteRates({ address: checked.address, parcel: await buildParcel(lines) });
-      const chosen = rates.find(r => r.provider === choice.provider && r.token === choice.token);
-      if (!chosen) return res.status(409).json({ error: 'That shipping option is no longer available. Please choose again.' });
+      if (checked.error) return res.status(400).json({ error: checked.error });
+      const chosen = verifyRate(req.body?.shipping?.rate, quoteFingerprint(lines, checked.address));
+      if (!chosen) return res.status(409).json({ error: 'Your shipping price has expired or your cart changed. Please choose your shipping option again.' });
       const days = chosen.days ? Math.max(1, Math.round(chosen.days)) : null;
       shippingOptions = [{
         shipping_rate_data: {

@@ -1,4 +1,4 @@
-import { shippingConfig, validateAddress, buildParcel, quoteRates } from './_lib/shipping.js';
+import { shippingConfig, validateAddress, buildParcel, quoteRates, quoteFingerprint, signRates } from './_lib/shipping.js';
 import { hasServiceRole } from './_lib/supabase.js';
 
 const ID = /^[0-9a-zA-Z-]{1,64}$/;
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     const parcel = await buildParcel(lines);
     const rates = await quoteRates({ address: checked.address, parcel });
     if (rates.length === 0) return res.status(422).json({ error: 'No shipping options were found for that address. Please check it and try again.' });
-    return res.status(200).json({ rates });
+    return res.status(200).json({ rates: signRates(rates, quoteFingerprint(lines, checked.address)) });
   } catch (err) {
     console.error('[shipping-rates] failed', err);
     return res.status(502).json({ error: 'Could not get shipping prices right now. Please try again.' });
