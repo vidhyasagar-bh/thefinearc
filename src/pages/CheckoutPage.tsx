@@ -4,6 +4,7 @@ import { Layout } from '../components/layout/Layout';
 import { FadeIn } from '../components/ui/FadeIn';
 import { Button } from '../components/ui/Button';
 import { useCartStore, cartKey, unitPrice, isAvailable } from '../store/cartStore';
+import { useSales } from '../store/salesStore';
 import { formatPrice } from '../utils/format';
 import toast from 'react-hot-toast';
 import { Lock } from 'lucide-react';
@@ -21,10 +22,12 @@ const selectClass =
 
 export function CheckoutPage() {
   const navigate = useNavigate();
-  const { items: allItems, total } = useCartStore();
+  const { items: allItems, total, subtotal, couponCode, couponDiscount, removeCoupon } = useCartStore();
+  useSales(); // re-render when a sale starts or ends
   const items = allItems.filter(isAvailable);
   const skipped = allItems.length - items.length;
   const cartTotal = total();
+  const cartSubtotal = subtotal();
   const [processing, setProcessing] = useState(false);
   const [config, setConfig] = useState<{ enabled: boolean; countries: string[] } | null>(null);
   const [address, setAddress] = useState<Address>({ name: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' });
@@ -126,12 +129,14 @@ export function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: cartLines,
+          ...(couponCode && couponDiscount > 0 ? { coupon: couponCode } : {}),
           ...(config?.enabled && rate ? { shipping: { address, rate } } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.client_secret) {
         console.error('Checkout error:', res.status, data);
+        if (data.coupon_error) removeCoupon(); // the code stopped being valid since it was added
         if (res.status === 409) { setRates(null); setSelected(''); } // quote expired or cart changed: ask for fresh prices
         throw new Error(data.detail ? `${data.error} (${data.detail})` : data.error || `Could not start checkout (server replied ${res.status}).`);
       }
@@ -332,10 +337,20 @@ export function CheckoutPage() {
                   ); })}
                 </div>
                 <div className="border-t border-art-pale pt-4 space-y-2">
+                  {couponDiscount > 0 && (
+                    <>
+                      <div className="flex justify-between font-sans text-sm text-art-muted">
+                        <span>Subtotal</span><span>{formatPrice(cartSubtotal, 'USD', 2)}</span>
+                      </div>
+                      <div className="flex justify-between font-sans text-sm text-green-700">
+                        <span>Code {couponCode}</span><span>−{formatPrice(couponDiscount, 'USD', 2)}</span>
+                      </div>
+                    </>
+                  )}
                   {rate && (
                     <>
                       <div className="flex justify-between font-sans text-sm text-art-muted">
-                        <span>Items</span><span>{formatPrice(cartTotal)}</span>
+                        <span>Items</span><span>{formatPrice(cartTotal, 'USD', 2)}</span>
                       </div>
                       <div className="flex justify-between font-sans text-sm text-art-muted">
                         <span>Shipping (est.)</span><span>{formatPrice(rate.amount, 'USD', 2)}</span>

@@ -1,9 +1,11 @@
-export function formatPrice(price: number, currency = 'USD', decimals = 0): string {
+// Whole dollars show without cents; anything with cents (sale prices, discounts) shows them
+export function formatPrice(price: number, currency = 'USD', decimals?: number): string {
+  const digits = decimals ?? (Math.abs(price - Math.round(price)) < 0.005 ? 0 : 2);
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   }).format(price);
 }
 

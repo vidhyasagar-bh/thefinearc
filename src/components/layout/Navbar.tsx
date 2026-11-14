@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Menu, X } from 'lucide-react';
 import { useCartStore } from '../../store/cartStore';
 import { useCartSync } from '../../hooks/useCartSync';
+import { usePromoSync } from '../../hooks/usePromoSync';
 import { cn } from '../../utils/format';
 
 const navLinks = [
@@ -19,6 +20,7 @@ export function Navbar() {
   const location = useLocation();
   const itemCount = useCartStore(s => s.itemCount());
   useCartSync();
+  usePromoSync();
   const isHome = location.pathname === '/';
 
   useEffect(() => {

@@ -69,6 +69,7 @@ export interface CartItem {
   // Set when a refresh against the current listings finds a problem
   unavailable?: 'sold_out' | 'reserved' | 'removed';
   priceWas?: number;
+  seenPrice?: number;
   reducedFrom?: number;
 }
 

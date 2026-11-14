@@ -10,6 +10,9 @@ import { PageLoader } from '../components/ui/LoadingSpinner';
 import { useArtwork, useArtworks } from '../hooks/useArtworks';
 import { useCartStore } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
+import { useSales } from '../store/salesStore';
+import { listingPrice, priceFor } from '../utils/pricing';
+import { PriceTag } from '../components/promo/PriceTag';
 import { sectionLabel } from '../utils/sections';
 import toast from 'react-hot-toast';
 import { variationLabel } from '../utils/variations';
@@ -23,6 +26,7 @@ export function ArtworkDetailPage() {
   const [activeImage, setActiveImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [qty, setQty] = useState<Record<string, number>>({});
+  const sales = useSales();
 
   if (loading) return <PageLoader />;
   if (!artwork) return (
@@ -45,7 +49,8 @@ export function ArtworkDetailPage() {
     ? variations.filter(v => (qty[v.id] ?? 0) > 0).map(v => ({ variation: v, quantity: qty[v.id] }))
     : [];
   const selectedCount = lines.reduce((sum, l) => sum + l.quantity, 0);
-  const selectedTotal = lines.reduce((sum, l) => sum + l.variation.price * l.quantity, 0);
+  const selectedTotal = lines.reduce((sum, l) => sum + priceFor(artwork, l.variation.price, sales).price * l.quantity, 0);
+  const headline = listingPrice(artwork, sales);
   const optionTitle = `Choose your ${Array.from(new Set(variations.flatMap(v => v.options.map(o => o.name.toLowerCase())))).join(' / ')}`;
 
   function setLineQty(id: string, next: number, max: number) {
@@ -181,7 +186,7 @@ export function ArtworkDetailPage() {
                 <div className="flex items-center gap-4">
                   {artwork.availability === 'available' ? (
                     <p className="font-sans text-2xl text-art-charcoal">
-                      {variations.length > 1 ? 'From ' : ''}{formatPrice(artwork.price)}
+                      <PriceTag price={headline.price} original={headline.original} onSale={headline.onSale} percentOff={headline.percentOff} from={headline.from} size="lg" />
                     </p>
                   ) : (
                     <p className="font-sans text-lg text-art-muted uppercase tracking-widest text-sm">
@@ -227,7 +232,7 @@ export function ArtworkDetailPage() {
                           <div className="flex-1 min-w-0">
                             <p className="font-sans text-sm text-art-charcoal truncate">{variationLabel(v)}</p>
                             <p className="font-sans text-xs text-art-muted mt-0.5">
-                              {formatPrice(v.price)} · {out ? 'Sold out' : v.quantity <= 5 ? `Only ${v.quantity} left` : 'In stock'}
+                              {(() => { const p = priceFor(artwork, v.price, sales); return <PriceTag price={p.price} original={p.original} onSale={p.onSale} percentOff={p.percentOff} />; })()} · {out ? 'Sold out' : v.quantity <= 5 ? `Only ${v.quantity} left` : 'In stock'}
                             </p>
                           </div>
                           <div className="inline-flex items-center border border-art-pale shrink-0">

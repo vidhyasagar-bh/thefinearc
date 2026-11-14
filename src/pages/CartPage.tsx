@@ -4,12 +4,16 @@ import { X } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { FadeIn } from '../components/ui/FadeIn';
-import { useCartStore, cartKey, unitPrice, stockOf, isAvailable } from '../store/cartStore';
+import { useCartStore, cartKey, unitPrice, basePrice, stockOf, isAvailable } from '../store/cartStore';
+import { useSales } from '../store/salesStore';
+import { CouponBox } from '../components/promo/CouponBox';
 import { formatPrice } from '../utils/format';
 
 export function CartPage() {
-  const { items, removeItem, updateQuantity, total } = useCartStore();
+  const { items, removeItem, updateQuantity, total, subtotal, couponDiscount, couponCode } = useCartStore();
+  useSales(); // re-render when a sale starts or ends
   const cartTotal = total();
+  const cartSubtotal = subtotal();
   const available = items.filter(isAvailable);
   const unavailableCount = items.length - available.length;
   const reasonLabel = { sold_out: 'Sold out', reserved: 'Reserved', removed: 'No longer available' };
@@ -136,6 +140,9 @@ export function CartPage() {
                               </div>
                             ) : <span />}
                             <p className={`font-sans text-base ${item.unavailable ? 'text-art-muted line-through' : 'text-art-charcoal'}`}>
+                              {!item.unavailable && unitPrice(item) < basePrice(item) && (
+                                <s className="text-art-muted text-xs mr-2">{formatPrice(basePrice(item) * item.quantity)}</s>
+                              )}
                               {formatPrice(unitPrice(item) * item.quantity)}
                             </p>
                           </div>
@@ -164,6 +171,15 @@ export function CartPage() {
                       </div>
                     ))}
                   </div>
+                  <div className="border-t border-art-pale pt-4">
+                    <CouponBox />
+                  </div>
+                  {couponDiscount > 0 && (
+                    <div className="space-y-2 font-sans text-sm text-art-muted">
+                      <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(cartSubtotal, 'USD', 2)}</span></div>
+                      <div className="flex justify-between text-green-700"><span>Code {couponCode}</span><span>−{formatPrice(couponDiscount, 'USD', 2)}</span></div>
+                    </div>
+                  )}
                   <div className="border-t border-art-pale pt-4 flex justify-between">
                     <span className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
                       Total

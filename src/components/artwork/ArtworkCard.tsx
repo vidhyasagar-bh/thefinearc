@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import type { Artwork } from '../../types';
-import { formatPrice } from '../../utils/format';
+import { useSales } from '../../store/salesStore';
+import { listingPrice } from '../../utils/pricing';
+import { PriceTag } from '../promo/PriceTag';
 
 interface ArtworkCardProps {
   artwork: Artwork;
@@ -16,6 +18,8 @@ const availabilityConfig = {
 
 export function ArtworkCard({ artwork, index = 0 }: ArtworkCardProps) {
   const config = availabilityConfig[artwork.availability];
+  const sales = useSales();
+  const price = listingPrice(artwork, sales);
 
   return (
     <motion.div
@@ -56,7 +60,7 @@ export function ArtworkCard({ artwork, index = 0 }: ArtworkCardProps) {
           <p className="font-sans text-xs text-art-muted">{artwork.materials} · {artwork.dimensions}</p>
           <div className="flex items-center justify-between pt-1">
             <p className={`font-sans text-sm ${config.className}`}>
-              {artwork.availability === 'sold' ? 'Sold' : `${artwork.variations && artwork.variations.length > 1 ? 'From ' : ''}${formatPrice(artwork.price)}`}
+              {artwork.availability === 'sold' ? 'Sold' : <PriceTag price={price.price} original={price.original} onSale={price.onSale} percentOff={price.percentOff} from={price.from} />}
             </p>
             <span className="font-sans text-[10px] tracking-widest uppercase text-art-light group-hover:text-art-muted transition-colors duration-300">
               View →

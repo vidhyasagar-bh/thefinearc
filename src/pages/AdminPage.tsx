@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Plus, Edit2, Trash2, Eye, Package, MessageSquare,
-  BarChart2, RefreshCw, LogOut, Lock, TrendingUp, ChevronDown,
+  BarChart2, RefreshCw, LogOut, Lock, TrendingUp, ChevronDown, Tag,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input, Textarea } from '../components/ui/Input';
@@ -15,9 +15,10 @@ import { sendEmail } from '../lib/emailService';
 import toast from 'react-hot-toast';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { adminApi } from '../lib/adminApi';
+import { PromotionsPanel } from './admin/PromotionsPanel';
 import { fetchEtsyListings, etsyListingToPayload, etsyDiagnosticLine, etsyDiagnosticsReport, type EtsyListing } from '../lib/etsy';
 
-type AdminTab = 'artworks' | 'orders' | 'commissions' | 'analytics';
+type AdminTab = 'artworks' | 'orders' | 'commissions' | 'promotions' | 'analytics';
 
 interface ArtworkFormState {
   title: string; description: string; story: string; price: string;
@@ -838,6 +839,7 @@ function AdminDashboard({
     { key: 'artworks',    label: 'Artworks',    icon: <Eye size={16} strokeWidth={1.5} /> },
     { key: 'orders',      label: 'Orders',      icon: <Package size={16} strokeWidth={1.5} /> },
     { key: 'commissions', label: 'Commissions', icon: <MessageSquare size={16} strokeWidth={1.5} /> },
+    { key: 'promotions',  label: 'Promotions',  icon: <Tag size={16} strokeWidth={1.5} /> },
     { key: 'analytics',   label: 'Analytics',   icon: <BarChart2 size={16} strokeWidth={1.5} /> },
   ];
 
@@ -1192,6 +1194,9 @@ function AdminDashboard({
             )}
           </div>
         )}
+
+        {/* ── PROMOTIONS ────────────────────────────────────────────────────── */}
+        {tab === 'promotions' && <PromotionsPanel />}
 
         {/* ── COMMISSIONS ───────────────────────────────────────────────────── */}
         {tab === 'commissions' && (
