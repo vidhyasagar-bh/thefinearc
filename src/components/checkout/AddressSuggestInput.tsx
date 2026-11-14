@@ -26,6 +26,7 @@ interface Props {
 const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_PLACES_KEY as string | undefined;
 const GEOAPIFY_KEY = import.meta.env.VITE_GEOAPIFY_KEY as string | undefined;
 const HAS_PROVIDER = Boolean(GOOGLE_KEY || GEOAPIFY_KEY);
+export const addressSuggestionsAvailable = HAS_PROVIDER;
 
 const newSession = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
 

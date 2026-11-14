@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { FadeIn } from '../components/ui/FadeIn';
@@ -10,7 +10,7 @@ import { Lock } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { US_STATES } from '../utils/usStates';
 import { EmbeddedPaymentForm } from '../components/checkout/EmbeddedPaymentForm';
-import { AddressSuggestInput } from '../components/checkout/AddressSuggestInput';
+import { AddressSuggestInput, addressSuggestionsAvailable } from '../components/checkout/AddressSuggestInput';
 
 interface Rate { provider: string; service: string; token: string; amount: number; days: number | null }
 interface Address { name: string; street1: string; street2: string; city: string; state: string; zip: string; country: string }
@@ -29,6 +29,11 @@ export function CheckoutPage() {
   const [selected, setSelected] = useState<string>('');
   const [quoting, setQuoting] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  // One search box first; the remaining fields appear once an address is chosen (or "enter manually" is clicked).
+  // Without suggestions available, show every field straight away.
+  const [addressStep, setAddressStep] = useState<'search' | 'details'>(addressSuggestionsAvailable ? 'search' : 'details');
+  const aptRef = useRef<HTMLInputElement>(null);
+  const focusApt = useRef(false);
 
   useEffect(() => {
     fetch('/api/shipping-rates')
@@ -48,6 +53,13 @@ export function CheckoutPage() {
   const rate = rates?.find(r => `${r.provider}|${r.token}` === selected);
   const estimatedTotal = cartTotal + (rate?.amount ?? 0);
 
+  useEffect(() => {
+    if (addressStep === 'details' && focusApt.current) {
+      focusApt.current = false;
+      aptRef.current?.focus();
+    }
+  }, [addressStep]);
+
   function updateAddress(field: keyof Address, value: string) {
     setAddress(prev => ({ ...prev, [field]: value }));
     setRates(null);
@@ -56,6 +68,7 @@ export function CheckoutPage() {
 
   async function getRates(e: React.FormEvent) {
     e.preventDefault();
+    if (addressStep === 'search') return;
     setQuoting(true);
     try {
       const res = await fetch('/api/shipping-rates', {
@@ -145,40 +158,59 @@ export function CheckoutPage() {
                               setAddress(prev => ({ ...prev, ...picked, country: config.countries.includes(picked.country) ? picked.country : prev.country }));
                               setRates(null);
                               setSelected('');
+                              focusApt.current = true;
+                              setAddressStep('details');
                             }}
                           />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <Input label="Apartment, suite, etc." value={address.street2}
-                            onChange={e => updateAddress('street2', e.target.value)} />
-                        </div>
-                        <Input label="City *" value={address.city} required
-                          onChange={e => updateAddress('city', e.target.value)} />
-                        <div>
-                          <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">
-                            {address.country === 'US' ? 'State *' : 'State / region'}
-                          </label>
-                          {address.country === 'US' ? (
-                            <select value={address.state} required onChange={e => updateAddress('state', e.target.value)} className={selectClass}>
-                              <option value="">Select…</option>
-                              {US_STATES.map(st => <option key={st.code} value={st.code}>{st.name}</option>)}
-                            </select>
-                          ) : (
-                            <Input value={address.state} onChange={e => updateAddress('state', e.target.value)} />
+                          {addressStep === 'search' && (
+                            <button
+                              type="button"
+                              onClick={() => setAddressStep('details')}
+                              className="mt-2 font-sans text-xs text-art-muted hover:text-art-charcoal underline underline-offset-4 transition-colors"
+                            >
+                              Can't find your address? Enter it manually
+                            </button>
                           )}
                         </div>
-                        <Input label={address.country === 'US' ? 'ZIP code *' : 'Postal code *'} value={address.zip} required
-                          onChange={e => updateAddress('zip', e.target.value)} />
-                        <div>
-                          <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Country</label>
-                          <select value={address.country} onChange={e => updateAddress('country', e.target.value)} className={selectClass}>
-                            {config.countries.map(c => <option key={c} value={c}>{c === 'US' ? 'United States' : c}</option>)}
-                          </select>
-                        </div>
+                        {addressStep === 'details' && (
+                          <>
+                            <div className="sm:col-span-2">
+                              <Input ref={aptRef} label="Apartment, suite, etc." value={address.street2}
+                                onChange={e => updateAddress('street2', e.target.value)} />
+                            </div>
+                            <Input label="City *" value={address.city} required
+                              onChange={e => updateAddress('city', e.target.value)} />
+                            <div>
+                              <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">
+                                {address.country === 'US' ? 'State *' : 'State / region'}
+                              </label>
+                              {address.country === 'US' ? (
+                                <select value={address.state} required onChange={e => updateAddress('state', e.target.value)} className={selectClass}>
+                                  <option value="">Select…</option>
+                                  {US_STATES.map(st => <option key={st.code} value={st.code}>{st.name}</option>)}
+                                </select>
+                              ) : (
+                                <Input value={address.state} onChange={e => updateAddress('state', e.target.value)} />
+                              )}
+                            </div>
+                            <Input label={address.country === 'US' ? 'ZIP code *' : 'Postal code *'} value={address.zip} required
+                              onChange={e => updateAddress('zip', e.target.value)} />
+                            {config.countries.length > 1 && (
+                              <div>
+                                <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Country</label>
+                                <select value={address.country} onChange={e => updateAddress('country', e.target.value)} className={selectClass}>
+                                  {config.countries.map(c => <option key={c} value={c}>{c === 'US' ? 'United States' : c}</option>)}
+                                </select>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
-                      <Button type="submit" variant="secondary" size="lg" disabled={quoting} className="w-full sm:w-auto">
-                        {quoting ? 'Getting prices…' : rates ? 'Update shipping prices' : 'See shipping options'}
-                      </Button>
+                      {addressStep === 'details' && (
+                        <Button type="submit" variant="secondary" size="lg" disabled={quoting} className="w-full sm:w-auto">
+                          {quoting ? 'Getting prices…' : rates ? 'Update shipping prices' : 'See shipping options'}
+                        </Button>
+                      )}
 
                       {rates && (
                         <div className="space-y-3 pt-2">
