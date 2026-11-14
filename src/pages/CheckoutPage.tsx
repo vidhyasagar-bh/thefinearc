@@ -13,6 +13,7 @@ import { US_STATES } from '../utils/usStates';
 import { EmbeddedPaymentForm } from '../components/checkout/EmbeddedPaymentForm';
 import { AddressSuggestInput, addressSuggestionsAvailable } from '../components/checkout/AddressSuggestInput';
 import { useCartSync } from '../hooks/useCartSync';
+import { useFastPromoRefresh } from '../hooks/usePromoSync';
 
 interface Rate { provider: string; service: string; token: string; amount: number; days: number | null; exp: number; sig: string }
 interface Address { name: string; street1: string; street2: string; city: string; state: string; zip: string; country: string }
@@ -39,6 +40,7 @@ export function CheckoutPage() {
   const [sessionItemsTotal, setSessionItemsTotal] = useState<number | null>(null);
   // While a payment form is open, check for price and stock changes every few seconds
   useCartSync(clientSecret ? 10_000 : 60_000);
+  useFastPromoRefresh(10_000);
   // One search box first; the remaining fields appear once an address is chosen (or "enter manually" is clicked).
   // Without suggestions available, show every field straight away.
   const [addressStep, setAddressStep] = useState<'search' | 'details'>(addressSuggestionsAvailable ? 'search' : 'details');

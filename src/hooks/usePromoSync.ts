@@ -47,3 +47,21 @@ export function usePromoSync() {
     return () => clearTimeout(timer);
   }, [couponCode, itemsKey, salesKey, refreshCoupon]);
 }
+
+// Checkout page: look for sale and coupon changes every few seconds, so the page never shows a price that differs from what is charged
+export function useFastPromoRefresh(intervalMs = 10_000) {
+  const setSales = useSalesStore(s => s.setSales);
+  const refreshCoupon = useCartStore(s => s.refreshCoupon);
+
+  useEffect(() => {
+    if (!supabaseConfigured) return;
+    let cancelled = false;
+    async function tick() {
+      const { data, error } = await supabase.from('sales').select('*');
+      if (!error && data && !cancelled) setSales(data as Promo[]);
+      refreshCoupon(); // does nothing when no code is applied
+    }
+    const timer = setInterval(tick, intervalMs);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [setSales, refreshCoupon, intervalMs]);
+}
