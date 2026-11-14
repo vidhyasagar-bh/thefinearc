@@ -114,3 +114,12 @@ BEGIN
   CREATE POLICY "Public can view artwork media" ON storage.objects
     FOR SELECT USING (bucket_id IN ('artwork-images', 'artwork-videos'));
 END $$;
+
+-- 11. Shipping estimates: package size per artwork, and shipping details on orders
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS weight_oz numeric;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS package_length numeric;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS package_width numeric;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS package_height numeric;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_amount numeric(10,2);
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_service text;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_note text;

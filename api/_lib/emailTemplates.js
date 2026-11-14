@@ -111,17 +111,21 @@ const totalLabel = 'font-family:system-ui,-apple-system,sans-serif;font-size:12p
 const totalValue = 'font-family:system-ui,-apple-system,sans-serif;color:#2c2c2c;padding-top:12px;text-align:right;';
 
 export function orderConfirmationCustomer(data) {
-  const { name, items, total, subtotal, tax } = data;
+  const { name, items, total, subtotal, tax, shipping, shipping_service } = data;
   const rows = (Array.isArray(items) ? items : []).map(item =>
     `<tr>
       <td style="${cell}color:#2c2c2c;">${esc(item.artwork_title)}</td>
       <td style="${cell}color:#6b6055;text-align:right;">${money(item.price)}</td>
     </tr>`
   ).join('');
-  const taxRows = Number(tax) > 0
-    ? `<tr><td style="${totalLabel}">Subtotal</td><td style="${totalValue}font-size:13px;">${money(subtotal)}</td></tr>
-       <tr><td style="${totalLabel}">Tax</td><td style="${totalValue}font-size:13px;">${money(tax)}</td></tr>`
-    : '';
+  const extraRows = [
+    Number(shipping) > 0 || Number(tax) > 0 ? ['Subtotal', money(subtotal)] : null,
+    Number(shipping) > 0 ? [`Shipping${shipping_service ? ` (${esc(shipping_service)})` : ''}`, money(shipping)] : null,
+    Number(tax) > 0 ? ['Tax', money(tax)] : null,
+  ].filter(Boolean)
+    .map(([label, amount]) => `<tr><td style="${totalLabel}">${label}</td><td style="${totalValue}font-size:13px;">${amount}</td></tr>`)
+    .join('');
+  const taxRows = extraRows;
 
   return wrap(
     h1('Order confirmed.') +
@@ -142,7 +146,7 @@ export function orderConfirmationCustomer(data) {
 }
 
 export function orderNotificationArtist(data) {
-  const { name, email, customer_address: address, items, total } = data;
+  const { name, email, customer_address: address, items, total, shipping, shipping_service, shipping_note } = data;
   const itemsList = (Array.isArray(items) ? items : [])
     .map(item => `${esc(item.artwork_title)} — ${money(item.price)}`).join('<br>');
 
@@ -153,6 +157,8 @@ export function orderNotificationArtist(data) {
     (address ? label('Ship to') + value(esc([address.line1, address.city, address.postal_code, address.country].filter(Boolean).join(', '))) : '') +
     label('Items') +
     value(itemsList) +
+    (Number(shipping) > 0 ? label('Shipping paid') + value(`${money(shipping)}${shipping_service ? ` — ${esc(shipping_service)}` : ''}`) : '') +
+    (shipping_note ? `<p style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:#b45309;background:#fffbeb;padding:10px 12px;margin:0 0 16px 0;">${esc(shipping_note)}</p>` : '') +
     label('Total') +
     value(money(total)) +
     divider() +

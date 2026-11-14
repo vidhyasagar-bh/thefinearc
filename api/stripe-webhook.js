@@ -32,6 +32,12 @@ async function fulfill(stripe, sessionId) {
     price: li.quantity ? li.amount_subtotal / 100 / li.quantity : 0,
   }));
   const customerName = ship?.name || session.customer_details?.name || 'Customer';
+  // The price was quoted for the address entered on our checkout page; flag it if they changed it on Stripe's page
+  const quotedZip = session.metadata?.ship_zip;
+  const shippingNote = quotedZip && (
+    String(addr.postal_code ?? '').slice(0, 5).toUpperCase() !== quotedZip.slice(0, 5).toUpperCase() ||
+    (addr.country ?? '') !== (session.metadata?.ship_country ?? '')
+  ) ? `Shipping was quoted for ${quotedZip} (${session.metadata.ship_country}) but the order is going to ${addr.postal_code ?? '?'} (${addr.country ?? '?'}). Check the shipping cost before sending.` : null;
   const customerEmail = session.customer_details?.email || '';
 
   try {
@@ -48,6 +54,9 @@ async function fulfill(stripe, sessionId) {
         total: session.amount_total / 100,
         subtotal: session.amount_subtotal / 100,
         tax_amount: (session.total_details?.amount_tax ?? 0) / 100,
+        shipping_amount: (session.total_details?.amount_shipping ?? 0) / 100,
+        shipping_service: session.metadata?.ship_service ?? null,
+        shipping_note: shippingNote,
         payment_status: 'paid',
         stripe_payment_intent_id: session.payment_intent?.id ?? null,
         stripe_checkout_session_id: sessionId,
@@ -88,6 +97,9 @@ async function fulfill(stripe, sessionId) {
     items: items.map(i => ({ artwork_title: i.artwork_title, quantity: i.quantity, price: i.price })),
     subtotal: session.amount_subtotal / 100,
     tax: (session.total_details?.amount_tax ?? 0) / 100,
+    shipping: (session.total_details?.amount_shipping ?? 0) / 100,
+    shipping_service: session.metadata?.ship_service ?? null,
+    shipping_note: shippingNote,
     total: session.amount_total / 100,
   });
   console.log('[webhook] order emails:', JSON.stringify(results));

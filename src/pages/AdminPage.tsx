@@ -26,6 +26,7 @@ interface ArtworkFormState {
   availability: 'available' | 'sold' | 'reserved';
   framing: string; year: string;
   quantity: string; variations: ArtworkVariation[];
+  weight: string; pkgLength: string; pkgWidth: string; pkgHeight: string;
 }
 
 interface Order {
@@ -46,6 +47,7 @@ const emptyArtwork: ArtworkFormState = {
   title: '', description: '', story: '', price: '', dimensions: '', materials: '',
   category: '', images: [], video_url: '', availability: 'available', framing: '',
   year: new Date().getFullYear().toString(), quantity: '1', variations: [],
+  weight: '', pkgLength: '', pkgWidth: '', pkgHeight: '',
 };
 
 const statusColors: Record<string, string> = {
@@ -761,6 +763,10 @@ function AdminDashboard({
         availability, framing: form.framing || null,
         year: parseInt(form.year) || null,
         quantity, variations,
+        weight_oz: form.weight ? Number(form.weight) : null,
+        package_length: form.pkgLength ? Number(form.pkgLength) : null,
+        package_width: form.pkgWidth ? Number(form.pkgWidth) : null,
+        package_height: form.pkgHeight ? Number(form.pkgHeight) : null,
       };
       await adminApi('artworks.save', { id: editingId, payload });
       toast.success(editingId ? 'Artwork updated.' : 'Artwork added.');
@@ -792,6 +798,10 @@ function AdminDashboard({
       year: artwork.year?.toString() || '',
       quantity: artwork.quantity != null ? String(artwork.quantity) : '1',
       variations: (artwork.variations ?? []).map(v => ({ ...v, options: v.options.map(o => ({ ...o })) })),
+      weight: artwork.weight_oz != null ? String(artwork.weight_oz) : '',
+      pkgLength: artwork.package_length != null ? String(artwork.package_length) : '',
+      pkgWidth: artwork.package_width != null ? String(artwork.package_width) : '',
+      pkgHeight: artwork.package_height != null ? String(artwork.package_height) : '',
     });
     setEditingId(artwork.id); setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1010,6 +1020,24 @@ function AdminDashboard({
                     <Input label="Stock (how many available)" type="number" min="0" step="1" value={form.quantity}
                       onChange={e => updateForm('quantity', e.target.value)} placeholder="1" />
                   )}
+                </div>
+                <div className="border border-art-pale p-4 bg-white/40 space-y-3">
+                  <div>
+                    <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Packing (for shipping estimates)</p>
+                    <p className="font-sans text-xs text-art-muted mt-1 max-w-md">
+                      Weight and box size of one packed piece, including packaging. Leave blank to use the default size.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <Input label="Weight (oz)" type="number" min="0" step="0.1" value={form.weight}
+                      onChange={e => updateForm('weight', e.target.value)} placeholder="16" />
+                    <Input label="Length (in)" type="number" min="0" step="0.1" value={form.pkgLength}
+                      onChange={e => updateForm('pkgLength', e.target.value)} placeholder="14" />
+                    <Input label="Width (in)" type="number" min="0" step="0.1" value={form.pkgWidth}
+                      onChange={e => updateForm('pkgWidth', e.target.value)} placeholder="14" />
+                    <Input label="Height (in)" type="number" min="0" step="0.1" value={form.pkgHeight}
+                      onChange={e => updateForm('pkgHeight', e.target.value)} placeholder="2" />
+                  </div>
                 </div>
                 <VariationEditor
                   variations={form.variations}

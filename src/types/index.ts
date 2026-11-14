@@ -12,6 +12,10 @@ export interface Artwork {
   framing?: string;
   year?: number;
   video_url?: string;
+  weight_oz?: number | null;
+  package_length?: number | null;
+  package_width?: number | null;
+  package_height?: number | null;
   quantity?: number;
   tags?: string[];
   variations?: ArtworkVariation[];

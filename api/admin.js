@@ -5,6 +5,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ARTWORK_FIELDS = [
   'title', 'description', 'story', 'price', 'dimensions', 'materials', 'category', 'images', 'video_url',
   'availability', 'framing', 'year', 'quantity', 'tags', 'variations', 'etsy_url', 'etsy_listing_id', 'etsy_data',
+  'weight_oz', 'package_length', 'package_width', 'package_height',
 ];
 const AVAILABILITY = ['available', 'sold', 'reserved'];
 const FULFILMENT = ['processing', 'confirmed', 'preparing', 'shipped', 'delivered'];

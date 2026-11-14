@@ -1,9 +1,8 @@
 import Stripe from 'stripe';
 import { sb } from './_lib/supabase.js';
+import { shippingConfig, validateAddress, buildParcel, quoteRates } from './_lib/shipping.js';
 
 const ID = /^[0-9a-zA-Z-]{1,64}$/;
-const COUNTRIES = (process.env.SHIPPING_COUNTRIES || 'US,CA,GB,AU')
-  .split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -63,6 +62,40 @@ export default async function handler(req, res) {
       metadata[`item_${i}`] = `${art.id}|${l.variationId ?? ''}|${quantity}`;
     }
 
+    // Shipping: re-quote on the server so the customer can't pick a price the carrier didn't offer
+    const cfg = shippingConfig();
+    let shippingOptions;
+    let allowedCountries = cfg.countries;
+    if (cfg.enabled) {
+      const checked = validateAddress(req.body?.shipping?.address, cfg.countries);
+      const choice = req.body?.shipping?.rate;
+      if (checked.error || !choice?.provider || !choice?.token) {
+        return res.status(400).json({ error: checked.error || 'Please choose a shipping option.' });
+      }
+      const rates = await quoteRates({ address: checked.address, parcel: await buildParcel(lines) });
+      const chosen = rates.find(r => r.provider === choice.provider && r.token === choice.token);
+      if (!chosen) return res.status(409).json({ error: 'That shipping option is no longer available. Please choose again.' });
+      const days = chosen.days ? Math.max(1, Math.round(chosen.days)) : null;
+      shippingOptions = [{
+        shipping_rate_data: {
+          type: 'fixed_amount',
+          fixed_amount: { amount: Math.round(chosen.amount * 100), currency: 'usd' },
+          display_name: `${chosen.provider} ${chosen.service}`.slice(0, 100),
+          tax_behavior: 'exclusive',
+          tax_code: 'txcd_92010001',
+          ...(days ? { delivery_estimate: { minimum: { unit: 'business_day', value: days }, maximum: { unit: 'business_day', value: days } } } : {}),
+        },
+      }];
+      Object.assign(metadata, {
+        ship_service: `${chosen.provider} ${chosen.service}`.slice(0, 100),
+        ship_amount: String(chosen.amount),
+        ship_zip: checked.address.zip,
+        ship_state: checked.address.state,
+        ship_country: checked.address.country,
+      });
+      allowedCountries = [checked.address.country];
+    }
+
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const proto = req.headers['x-forwarded-proto'] || 'https';
     const origin = process.env.SITE_URL || `${proto}://${req.headers.host}`;
@@ -71,7 +104,8 @@ export default async function handler(req, res) {
       line_items: lineItems,
       automatic_tax: { enabled: true },
       billing_address_collection: 'auto',
-      shipping_address_collection: { allowed_countries: COUNTRIES },
+      shipping_address_collection: { allowed_countries: allowedCountries },
+      ...(shippingOptions ? { shipping_options: shippingOptions } : {}),
       phone_number_collection: { enabled: true },
       metadata,
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,

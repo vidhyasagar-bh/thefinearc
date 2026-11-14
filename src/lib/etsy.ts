@@ -303,6 +303,14 @@ export function etsyVariationSummary(listing: EtsyListing): string {
   return `${v.length} variation${v.length > 1 ? 's' : ''} (${names.join(', ')})`;
 }
 
+function weightInOunces(l: EtsyListing): number | null {
+  const w = Number(l.item_weight);
+  if (!Number.isFinite(w) || w <= 0) return null;
+  const factor: Record<string, number> = { oz: 1, lb: 16, g: 0.035274, kg: 35.274 };
+  const f = factor[String(l.item_weight_unit ?? '').toLowerCase()];
+  return f ? Math.round(w * f * 10) / 10 : null;
+}
+
 export function etsyListingToPayload(listing: EtsyListing) {
   const variations = buildVariations(listing);
   const basePrice = money(listing.price) ?? 0;
@@ -322,6 +330,8 @@ export function etsyListingToPayload(listing: EtsyListing) {
     materials: pickMaterials(listing),
     images,
     video_url: extras.videos?.[0]?.video_url ?? null,
+    // Only sent when Etsy has a weight, so a re-import never wipes a package weight you entered
+    ...(weightInOunces(listing) ? { weight_oz: weightInOunces(listing) } : {}),
     availability: totalQty > 0 ? 'available' as const : 'sold' as const,
     quantity: totalQty,
     tags: listing.tags ?? [],
