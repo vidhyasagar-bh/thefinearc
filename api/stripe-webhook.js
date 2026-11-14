@@ -10,6 +10,24 @@ async function readRaw(req) {
   return Buffer.concat(chunks);
 }
 
+// Counts one use of a coupon code; retries if two orders land at the same moment
+async function countRedemption(code) {
+  try {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const [coupon] = await sb(`coupons?select=id,redemptions&code=eq.${encodeURIComponent(code)}`);
+      if (!coupon) return;
+      const updated = await sb(`coupons?id=eq.${coupon.id}&redemptions=eq.${coupon.redemptions}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({ redemptions: coupon.redemptions + 1 }),
+      });
+      if (updated?.length) return;
+    }
+  } catch (err) {
+    console.error('[webhook] could not count coupon use for', code, err);
+  }
+}
+
 async function fulfill(stripe, sessionId) {
   const existing = await sb(`orders?select=id&stripe_checkout_session_id=eq.${encodeURIComponent(sessionId)}`);
   if (existing && existing.length > 0) return; // already processed
@@ -37,6 +55,8 @@ async function fulfill(stripe, sessionId) {
     price: li.quantity ? li.amount_subtotal / 100 / li.quantity : 0,
   }));
   const customerName = m.ship_name || ship?.name || session.customer_details?.name || 'Customer';
+  const couponCode = m.coupon || null;
+  const discountCents = Number(m.discount_cents) || 0;
   // The price was quoted for the address entered on our checkout page; flag it if they changed it on Stripe's page
   const quotedZip = session.metadata?.ship_zip;
   const shippingNote = quotedZip && (
@@ -62,6 +82,8 @@ async function fulfill(stripe, sessionId) {
         shipping_amount: (session.total_details?.amount_shipping ?? 0) / 100,
         shipping_service: session.metadata?.ship_service ?? null,
         shipping_note: shippingNote,
+        coupon_code: couponCode,
+        discount_amount: discountCents / 100,
         payment_status: 'paid',
         stripe_payment_intent_id: session.payment_intent?.id ?? null,
         stripe_checkout_session_id: sessionId,
@@ -95,6 +117,8 @@ async function fulfill(stripe, sessionId) {
     }
   }
 
+  if (couponCode) await countRedemption(couponCode);
+
   const results = await deliver('order_confirmation', {
     name: customerName,
     email: customerEmail,
@@ -105,6 +129,8 @@ async function fulfill(stripe, sessionId) {
     shipping: (session.total_details?.amount_shipping ?? 0) / 100,
     shipping_service: session.metadata?.ship_service ?? null,
     shipping_note: shippingNote,
+    coupon: couponCode,
+    discount: discountCents / 100,
     total: session.amount_total / 100,
   });
   console.log('[webhook] order emails:', JSON.stringify(results));

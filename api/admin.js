@@ -19,6 +19,62 @@ const MAX_ATTEMPTS = 6;
 
 class BadRequest extends Error {}
 
+const SCOPES = ['all', 'sections', 'items'];
+const TYPES = ['percent', 'amount'];
+
+// Shared checks for sales and coupons
+function pickPromo(input, { coupon }) {
+  const i = input && typeof input === 'object' ? input : {};
+  const out = {};
+  if (!TYPES.includes(i.discount_type)) throw new BadRequest('Choose percent off or amount off.');
+  out.discount_type = i.discount_type;
+  const value = Number(i.discount_value);
+  if (!(value > 0)) throw new BadRequest('Enter a discount greater than zero.');
+  if (i.discount_type === 'percent' && value > 95) throw new BadRequest('Percent off can be at most 95.');
+  if (i.discount_type === 'amount' && value > 100000) throw new BadRequest('That discount is too large.');
+  out.discount_value = Math.round(value * 100) / 100;
+  if (!SCOPES.includes(i.applies_to)) throw new BadRequest('Choose what the discount applies to.');
+  out.applies_to = i.applies_to;
+  out.sections = Array.isArray(i.sections) ? i.sections.map(x => String(x).trim().toLowerCase()).filter(Boolean).slice(0, 100) : [];
+  out.artwork_ids = Array.isArray(i.artwork_ids) ? i.artwork_ids.map(String).filter(x => UUID.test(x)).slice(0, 500) : [];
+  if (out.applies_to === 'sections' && out.sections.length === 0) throw new BadRequest('Choose at least one section.');
+  if (out.applies_to === 'items' && out.artwork_ids.length === 0) throw new BadRequest('Choose at least one listing.');
+  for (const key of ['starts_at', 'ends_at']) {
+    if (i[key]) {
+      if (Number.isNaN(Date.parse(i[key]))) throw new BadRequest('Invalid date.');
+      out[key] = new Date(i[key]).toISOString();
+    } else out[key] = null;
+  }
+  if (out.starts_at && out.ends_at && Date.parse(out.ends_at) <= Date.parse(out.starts_at)) throw new BadRequest('The end must be after the start.');
+  out.active = i.active !== false;
+  if (coupon) {
+    const code = String(i.code || '').trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{3,40}$/.test(code)) throw new BadRequest('Codes use 3-40 letters, numbers, dashes or underscores.');
+    out.code = code;
+    const min = Number(i.min_subtotal || 0);
+    if (!(min >= 0)) throw new BadRequest('Invalid minimum order.');
+    out.min_subtotal = Math.round(min * 100) / 100;
+    out.exclude_sale_items = Boolean(i.exclude_sale_items);
+    if (i.max_redemptions === null || i.max_redemptions === '' || i.max_redemptions === undefined) out.max_redemptions = null;
+    else {
+      const max = Math.floor(Number(i.max_redemptions));
+      if (!(max >= 1)) throw new BadRequest('The usage limit must be at least 1.');
+      out.max_redemptions = max;
+    }
+  } else {
+    const name = String(i.name || '').trim();
+    if (!name) throw new BadRequest('Give the sale a name.');
+    out.name = name.slice(0, 100);
+  }
+  return out;
+}
+
+// Turns a duplicate-code database error into a readable message
+function duplicateAware(err) {
+  if (err?.body?.code === '23505') throw new BadRequest('That code already exists.');
+  throw err;
+}
+
 function pickArtwork(input) {
   const out = {};
   for (const k of ARTWORK_FIELDS) if (input && k in input) out[k] = input[k];
@@ -106,6 +162,42 @@ export default async function handler(req, res) {
         });
         return res.status(200).json({ ok: true, updated: false });
       }
+
+      case 'sales.list':
+        return res.status(200).json({ data: await sb('sales?select=*&order=created_at.desc') });
+
+      case 'sales.save': {
+        const payload = pickPromo(body.payload, { coupon: false });
+        if (body.id) {
+          if (!UUID.test(String(body.id))) return res.status(400).json({ error: 'Invalid id.' });
+          await sb(`sales?id=eq.${body.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+        } else await sb('sales', { method: 'POST', body: JSON.stringify(payload) });
+        return res.status(200).json({ ok: true });
+      }
+
+      case 'sales.delete':
+        if (!UUID.test(String(body.id))) return res.status(400).json({ error: 'Invalid id.' });
+        await sb(`sales?id=eq.${body.id}`, { method: 'DELETE' });
+        return res.status(200).json({ ok: true });
+
+      case 'coupons.list':
+        return res.status(200).json({ data: await sb('coupons?select=*&order=created_at.desc') });
+
+      case 'coupons.save': {
+        const payload = pickPromo(body.payload, { coupon: true });
+        try {
+          if (body.id) {
+            if (!UUID.test(String(body.id))) return res.status(400).json({ error: 'Invalid id.' });
+            await sb(`coupons?id=eq.${body.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+          } else await sb('coupons', { method: 'POST', body: JSON.stringify(payload) });
+        } catch (err) { duplicateAware(err); }
+        return res.status(200).json({ ok: true });
+      }
+
+      case 'coupons.delete':
+        if (!UUID.test(String(body.id))) return res.status(400).json({ error: 'Invalid id.' });
+        await sb(`coupons?id=eq.${body.id}`, { method: 'DELETE' });
+        return res.status(200).json({ ok: true });
 
       case 'orders.list':
         return res.status(200).json({ data: await sb('orders?select=*&order=created_at.desc') });

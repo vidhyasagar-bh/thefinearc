@@ -111,14 +111,17 @@ const totalLabel = 'font-family:system-ui,-apple-system,sans-serif;font-size:12p
 const totalValue = 'font-family:system-ui,-apple-system,sans-serif;color:#2c2c2c;padding-top:12px;text-align:right;';
 
 export function orderConfirmationCustomer(data) {
-  const { name, items, total, subtotal, tax, shipping, shipping_service } = data;
+  const { name, items, total, subtotal, tax, shipping, shipping_service, coupon, discount } = data;
   const rows = (Array.isArray(items) ? items : []).map(item =>
     `<tr>
       <td style="${cell}color:#2c2c2c;">${esc(item.artwork_title)}</td>
       <td style="${cell}color:#6b6055;text-align:right;">${money(item.price)}</td>
     </tr>`
   ).join('');
-  const extraRows = [
+  const savedRow = Number(discount) > 0
+    ? `<tr><td style="${totalLabel}">Code ${esc(coupon)}</td><td style="${totalValue}font-size:13px;color:#2e7d32;">−${money(discount)} saved</td></tr>`
+    : '';
+  const extraRows = savedRow + [
     Number(shipping) > 0 || Number(tax) > 0 ? ['Subtotal', money(subtotal)] : null,
     Number(shipping) > 0 ? [`Shipping${shipping_service ? ` (${esc(shipping_service)})` : ''}`, money(shipping)] : null,
     Number(tax) > 0 ? ['Tax', money(tax)] : null,
@@ -146,7 +149,7 @@ export function orderConfirmationCustomer(data) {
 }
 
 export function orderNotificationArtist(data) {
-  const { name, email, customer_address: address, items, total, shipping, shipping_service, shipping_note } = data;
+  const { name, email, customer_address: address, items, total, shipping, shipping_service, shipping_note, coupon, discount } = data;
   const itemsList = (Array.isArray(items) ? items : [])
     .map(item => `${esc(item.artwork_title)} — ${money(item.price)}`).join('<br>');
 
@@ -159,6 +162,7 @@ export function orderNotificationArtist(data) {
     value(itemsList) +
     (Number(shipping) > 0 ? label('Shipping paid') + value(`${money(shipping)}${shipping_service ? ` — ${esc(shipping_service)}` : ''}`) : '') +
     (shipping_note ? `<p style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:#b45309;background:#fffbeb;padding:10px 12px;margin:0 0 16px 0;">${esc(shipping_note)}</p>` : '') +
+    (Number(discount) > 0 ? label('Coupon used') + value(`${esc(coupon)} — customer saved ${money(discount)}`) : '') +
     label('Total') +
     value(money(total)) +
     divider() +

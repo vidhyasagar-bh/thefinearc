@@ -1,66 +1,44 @@
 import Stripe from 'stripe';
-import { sb } from './_lib/supabase.js';
 import { shippingConfig, validateAddress, quoteFingerprint, verifyRate } from './_lib/shipping.js';
-
-const ID = /^[0-9a-zA-Z-]{1,64}$/;
+import { validLines, loadArtworks, buildEntries, loadLiveSales, loadCoupon, priceEntries } from './_lib/promos.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: 'Payments are not configured.' });
 
   const lines = req.body?.items;
-  if (!Array.isArray(lines) || lines.length === 0 || lines.length > 20) {
-    return res.status(400).json({ error: 'Your cart is empty or invalid.' });
-  }
-  for (const l of lines) {
-    if (typeof l.artworkId !== 'string' || !ID.test(l.artworkId) ||
-        (l.variationId != null && (typeof l.variationId !== 'string' || !ID.test(l.variationId)))) {
-      return res.status(400).json({ error: 'Invalid cart item.' });
-    }
-  }
+  if (!validLines(lines)) return res.status(400).json({ error: 'Your cart is empty or invalid.' });
 
   try {
-    const ids = [...new Set(lines.map(l => l.artworkId))];
-    const artworks = await sb(
-      `artworks?select=id,title,price,images,availability,quantity,variations&id=in.(${ids.join(',')})`
-    );
-    const byId = new Map((artworks || []).map(a => [a.id, a]));
+    const built = buildEntries(lines, await loadArtworks(lines));
+    if (built.error) return res.status(built.status).json({ error: built.error });
+
+    // Sales apply automatically; a coupon is checked again here, so the price can only come from the server
+    const code = String(req.body?.coupon || '').trim();
+    const coupon = code ? await loadCoupon(code) : null;
+    if (code && !coupon) return res.status(400).json({ error: 'That code is not valid.', coupon_error: true });
+    const priced = priceEntries(built.entries, await loadLiveSales(), coupon);
+    if (priced.couponError) return res.status(400).json({ error: priced.couponError, coupon_error: true });
 
     const lineItems = [];
     const metadata = {};
-    for (const [i, l] of lines.entries()) {
-      const art = byId.get(l.artworkId);
-      if (!art || art.availability !== 'available') {
-        return res.status(409).json({ error: `"${art?.title ?? 'An item'}" is no longer available.` });
-      }
-      const variations = Array.isArray(art.variations) ? art.variations : [];
-      let price = Number(art.price);
-      let stock = art.quantity ?? 1;
-      let name = art.title;
-      if (variations.length > 0) {
-        const v = variations.find(x => x.id === l.variationId);
-        if (!v) return res.status(400).json({ error: `Please choose an option for "${art.title}".` });
-        price = Number(v.price);
-        stock = v.quantity;
-        name = `${art.title} (${v.options.map(o => `${o.name}: ${o.value}`).join(', ')})`;
-      }
-      if (stock < 1) return res.status(409).json({ error: `"${name}" is sold out.` });
-      const quantity = Math.max(1, Math.min(Number(l.quantity) || 1, stock, 10));
-      const image = art.images?.[0];
+    for (const e of priced.entries) {
+      const image = e.art.images?.[0];
       lineItems.push({
-        quantity,
+        quantity: e.quantity,
         price_data: {
           currency: 'usd',
-          unit_amount: Math.round(price * 100),
+          unit_amount: e.finalUnitCents,
           tax_behavior: 'exclusive',
           product_data: {
-            name: name.slice(0, 250),
+            name: e.name.slice(0, 250),
             ...(image && image.startsWith('https://') && image.length < 2000 ? { images: [image] } : {}),
           },
         },
       });
-      metadata[`item_${i}`] = `${art.id}|${l.variationId ?? ''}|${quantity}`;
+      metadata[`item_${e.i}`] = `${e.art.id}|${e.variationId ?? ''}|${e.quantity}`;
     }
+    if (coupon) Object.assign(metadata, { coupon: coupon.code, discount_cents: String(priced.discountCents) });
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-03-25.dahlia' });
 
@@ -137,7 +115,7 @@ export default async function handler(req, res) {
       });
     }
     // What Stripe will charge for the items (cents), so the page can tell if its own total has drifted
-    const itemsTotal = lineItems.reduce((sum, li) => sum + li.price_data.unit_amount * li.quantity, 0);
+    const itemsTotal = priced.itemsTotalCents;
     return res.status(200).json({ client_secret: clientSecret, items_total: itemsTotal });
   } catch (err) {
     console.error('[checkout] failed', err.type, err.code, err.param, err.message);

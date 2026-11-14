@@ -123,3 +123,47 @@ ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS package_height numeric;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_amount numeric(10,2);
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_service text;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_note text;
+
+-- 12. Sales and coupon codes
+CREATE TABLE IF NOT EXISTS public.sales (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  discount_type text NOT NULL CHECK (discount_type IN ('percent', 'amount')),
+  discount_value numeric(10,2) NOT NULL CHECK (discount_value > 0),
+  applies_to text NOT NULL DEFAULT 'all' CHECK (applies_to IN ('all', 'sections', 'items')),
+  sections text[] NOT NULL DEFAULT '{}',
+  artwork_ids uuid[] NOT NULL DEFAULT '{}',
+  starts_at timestamptz,
+  ends_at timestamptz,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public can read live sales" ON public.sales;
+-- Visitors can only see sales that are running right now (so the site can show sale prices)
+CREATE POLICY "Public can read live sales" ON public.sales FOR SELECT
+  USING (active AND (starts_at IS NULL OR starts_at <= now()) AND (ends_at IS NULL OR ends_at > now()));
+
+CREATE TABLE IF NOT EXISTS public.coupons (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code text NOT NULL,
+  discount_type text NOT NULL CHECK (discount_type IN ('percent', 'amount')),
+  discount_value numeric(10,2) NOT NULL CHECK (discount_value > 0),
+  applies_to text NOT NULL DEFAULT 'all' CHECK (applies_to IN ('all', 'sections', 'items')),
+  sections text[] NOT NULL DEFAULT '{}',
+  artwork_ids uuid[] NOT NULL DEFAULT '{}',
+  min_subtotal numeric(10,2) NOT NULL DEFAULT 0,
+  exclude_sale_items boolean NOT NULL DEFAULT false,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  max_redemptions integer CHECK (max_redemptions IS NULL OR max_redemptions > 0),
+  redemptions integer NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS coupons_code_key ON public.coupons (upper(code));
+-- Coupon codes are private: no public policies. Only the server (service role) can read them.
+ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS coupon_code text;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS discount_amount numeric(10,2);
