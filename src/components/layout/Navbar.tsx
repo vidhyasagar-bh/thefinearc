@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Menu, X } from 'lucide-react';
 import { useCartStore } from '../../store/cartStore';
+import { useCartSync } from '../../hooks/useCartSync';
 import { cn } from '../../utils/format';
 
 const navLinks = [
@@ -17,6 +18,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const itemCount = useCartStore(s => s.itemCount());
+  useCartSync();
   const isHome = location.pathname === '/';
 
   useEffect(() => {

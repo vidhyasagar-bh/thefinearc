@@ -1,0 +1,29 @@
+import { useEffect } from 'react';
+import { supabase, supabaseConfigured } from '../lib/supabase';
+import { useCartStore } from '../store/cartStore';
+import type { Artwork } from '../types';
+
+// Keeps items already in a customer's cart in line with the current listings (price, stock, sold out).
+export function useCartSync() {
+  const ids = useCartStore(s => Array.from(new Set(s.items.map(i => i.artwork.id))).sort().join(','));
+  const sync = useCartStore(s => s.syncWithListings);
+
+  useEffect(() => {
+    if (!ids || !supabaseConfigured) return;
+    let cancelled = false;
+
+    async function refresh() {
+      const { data, error } = await supabase.from('artworks').select('*').in('id', ids.split(','));
+      if (!error && data && !cancelled) sync(data as Artwork[]);
+    }
+
+    refresh();
+    window.addEventListener('focus', refresh);
+    const timer = setInterval(refresh, 60_000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', refresh);
+      clearInterval(timer);
+    };
+  }, [ids, sync]);
+}

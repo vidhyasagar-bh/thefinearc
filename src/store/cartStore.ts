@@ -14,12 +14,17 @@ export function unitPrice(item: Pick<CartItem, 'artwork' | 'variation'>): number
   return item.variation?.price ?? item.artwork.price;
 }
 
+export function isAvailable(item: Pick<CartItem, 'unavailable'>): boolean {
+  return !item.unavailable;
+}
+
 interface CartStore {
   items: CartItem[];
   addItem: (artwork: Artwork, variation?: ArtworkVariation, quantity?: number) => void;
   removeItem: (key: string) => void;
   updateQuantity: (key: string, quantity: number) => void;
   clearCart: () => void;
+  syncWithListings: (fresh: Artwork[]) => void;
   total: () => number;
   itemCount: () => number;
 }
@@ -63,9 +68,44 @@ export const useCartStore = create<CartStore>()(
 
       clearCart: () => set({ items: [] }),
 
-      total: () => get().items.reduce((sum, item) => sum + unitPrice(item) * item.quantity, 0),
+      // Brings every cart item up to date with the current listings: new prices, new stock, sold-out and deleted pieces
+      syncWithListings: (fresh) => {
+        set((state) => ({
+          items: state.items.map((item): CartItem => {
+            const artwork = fresh.find(a => a.id === item.artwork.id);
+            if (!artwork) return { ...item, unavailable: 'removed' };
 
-      itemCount: () => get().items.reduce((sum, item) => sum + item.quantity, 0),
+            let variation = item.variation;
+            if (variation) {
+              const current = (artwork.variations ?? []).find(v => v.id === variation!.id);
+              if (!current) return { ...item, artwork, unavailable: 'removed' };
+              variation = current;
+            }
+
+            const oldPrice = unitPrice(item);
+            const price = unitPrice({ artwork, variation });
+            const stock = variation ? variation.quantity : artwork.quantity ?? (artwork.availability === 'available' ? 1 : 0);
+            const reason: CartItem['unavailable'] =
+              artwork.availability === 'reserved' ? 'reserved'
+              : artwork.availability !== 'available' || stock < 1 ? 'sold_out'
+              : undefined;
+
+            const quantity = reason ? item.quantity : Math.min(item.quantity, stock);
+            return {
+              artwork,
+              variation,
+              quantity,
+              unavailable: reason,
+              priceWas: price !== oldPrice ? oldPrice : item.priceWas !== undefined && item.priceWas !== price ? item.priceWas : undefined,
+              reducedFrom: quantity < item.quantity ? item.quantity : item.reducedFrom !== undefined && item.reducedFrom > quantity ? item.reducedFrom : undefined,
+            };
+          }),
+        }));
+      },
+
+      total: () => get().items.filter(isAvailable).reduce((sum, item) => sum + unitPrice(item) * item.quantity, 0),
+
+      itemCount: () => get().items.filter(isAvailable).reduce((sum, item) => sum + item.quantity, 0),
     }),
     { name: 'thefinearc-cart' }
   )

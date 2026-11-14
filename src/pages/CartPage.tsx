@@ -4,12 +4,15 @@ import { X } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { FadeIn } from '../components/ui/FadeIn';
-import { useCartStore, cartKey, unitPrice, stockOf } from '../store/cartStore';
+import { useCartStore, cartKey, unitPrice, stockOf, isAvailable } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
 
 export function CartPage() {
   const { items, removeItem, updateQuantity, total } = useCartStore();
   const cartTotal = total();
+  const available = items.filter(isAvailable);
+  const unavailableCount = items.length - available.length;
+  const reasonLabel = { sold_out: 'Sold out', reserved: 'Reserved', removed: 'No longer available' };
 
   return (
     <Layout>
@@ -39,6 +42,12 @@ export function CartPage() {
             </FadeIn>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 lg:gap-16">
+              {unavailableCount > 0 && (
+                <p className="md:col-span-3 font-sans text-sm text-amber-800 bg-amber-50 px-4 py-3 leading-relaxed">
+                  {unavailableCount} {unavailableCount === 1 ? 'item in your collection is' : 'items in your collection are'} no longer available
+                  and won't be included in your order. You can remove {unavailableCount === 1 ? 'it' : 'them'} below.
+                </p>
+              )}
               {/* Items */}
               <div className="md:col-span-2 divide-y divide-art-pale">
                 <AnimatePresence initial={false}>
@@ -50,7 +59,7 @@ export function CartPage() {
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="py-6 md:py-7"
+                      className={`py-6 md:py-7 ${item.unavailable ? 'opacity-60' : ''}`}
                     >
                       <div className="flex gap-5 md:gap-6">
                         {/* Image */}
@@ -73,6 +82,11 @@ export function CartPage() {
                                   {artwork.title}
                                 </h3>
                               </Link>
+                              {item.unavailable && (
+                                <span className="inline-block mt-1.5 font-sans text-[10px] tracking-widest uppercase bg-red-50 text-red-600 px-2 py-0.5">
+                                  {reasonLabel[item.unavailable]}
+                                </span>
+                              )}
                               <p className="font-sans text-xs text-art-muted mt-1 truncate">
                                 {variation
                                   ? variation.options.map(o => `${o.name}: ${o.value}`).join(' · ')
@@ -88,8 +102,24 @@ export function CartPage() {
                             </button>
                           </div>
 
+                          {!item.unavailable && item.priceWas !== undefined && item.priceWas !== unitPrice(item) && (
+                            <p className="font-sans text-xs text-amber-700 mt-2">
+                              Price updated from {formatPrice(item.priceWas)} to {formatPrice(unitPrice(item))}.
+                            </p>
+                          )}
+                          {!item.unavailable && item.reducedFrom !== undefined && (
+                            <p className="font-sans text-xs text-amber-700 mt-2">
+                              Only {stockOf(item)} {stockOf(item) === 1 ? 'is' : 'are'} left, so the quantity was reduced from {item.reducedFrom}.
+                            </p>
+                          )}
+                          {!item.unavailable && item.reducedFrom === undefined && stockOf(item) <= 3 && stockOf(item) >= 1 && (
+                            <p className="font-sans text-xs text-art-muted mt-2">
+                              {stockOf(item) === 1 ? 'Only 1 available.' : `Only ${stockOf(item)} left.`}
+                            </p>
+                          )}
+
                           <div className="flex items-center justify-between mt-3 gap-4">
-                            {stockOf(item) > 1 ? (
+                            {!item.unavailable && stockOf(item) > 1 ? (
                               <div className="inline-flex items-center border border-art-pale">
                                 <button
                                   onClick={() => updateQuantity(cartKey(item), item.quantity - 1)}
@@ -105,7 +135,7 @@ export function CartPage() {
                                 >+</button>
                               </div>
                             ) : <span />}
-                            <p className="font-sans text-base text-art-charcoal">
+                            <p className={`font-sans text-base ${item.unavailable ? 'text-art-muted line-through' : 'text-art-charcoal'}`}>
                               {formatPrice(unitPrice(item) * item.quantity)}
                             </p>
                           </div>
@@ -123,7 +153,7 @@ export function CartPage() {
                     Order Summary
                   </h2>
                   <div className="space-y-3">
-                    {items.map((item) => (
+                    {available.map((item) => (
                       <div key={cartKey(item)} className="flex justify-between text-sm gap-4">
                         <span className="font-sans text-art-muted truncate">
                           {item.artwork.title}{item.quantity > 1 ? ` × ${item.quantity}` : ''}
@@ -145,11 +175,15 @@ export function CartPage() {
                   <p className="font-sans text-[11px] text-art-muted leading-relaxed">
                     Shipping is calculated at checkout.
                   </p>
-                  <Link to="/checkout" className="block">
-                    <Button size="lg" className="w-full">
-                      Proceed to Checkout
-                    </Button>
-                  </Link>
+                  {available.length > 0 ? (
+                    <Link to="/checkout" className="block">
+                      <Button size="lg" className="w-full">
+                        Proceed to Checkout
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button size="lg" className="w-full" disabled>Proceed to Checkout</Button>
+                  )}
                   <Link to="/gallery" className="block text-center">
                     <span className="font-sans text-[11px] tracking-widest uppercase text-art-muted hover:text-art-charcoal transition-colors">
                       Continue Browsing

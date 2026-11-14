@@ -66,6 +66,10 @@ export interface CartItem {
   artwork: Artwork;
   variation?: ArtworkVariation;
   quantity: number;
+  // Set when a refresh against the current listings finds a problem
+  unavailable?: 'sold_out' | 'reserved' | 'removed';
+  priceWas?: number;
+  reducedFrom?: number;
 }
 
 export interface Order {

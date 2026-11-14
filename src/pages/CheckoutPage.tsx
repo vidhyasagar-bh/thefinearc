@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { FadeIn } from '../components/ui/FadeIn';
 import { Button } from '../components/ui/Button';
-import { useCartStore, cartKey, unitPrice } from '../store/cartStore';
+import { useCartStore, cartKey, unitPrice, isAvailable } from '../store/cartStore';
 import { formatPrice } from '../utils/format';
 import toast from 'react-hot-toast';
 import { Lock } from 'lucide-react';
@@ -20,7 +20,9 @@ const selectClass =
 
 export function CheckoutPage() {
   const navigate = useNavigate();
-  const { items, total } = useCartStore();
+  const { items: allItems, total } = useCartStore();
+  const items = allItems.filter(isAvailable);
+  const skipped = allItems.length - items.length;
   const cartTotal = total();
   const [processing, setProcessing] = useState(false);
   const [config, setConfig] = useState<{ enabled: boolean; countries: string[] } | null>(null);
@@ -283,6 +285,11 @@ export function CheckoutPage() {
             <FadeIn delay={0.2}>
               <div className="space-y-5 bg-cream-50 p-6 md:p-7 md:sticky md:top-32 self-start order-1 md:order-2">
                 <h2 className="font-serif text-lg font-light text-art-charcoal">Your Selection</h2>
+                {skipped > 0 && (
+                  <p className="font-sans text-xs text-amber-700 bg-amber-50 px-3 py-2 leading-relaxed">
+                    {skipped} {skipped === 1 ? 'item is' : 'items are'} no longer available and {skipped === 1 ? 'was' : 'were'} left out of this order.
+                  </p>
+                )}
                 <div className="space-y-4">
                   {items.map((item) => { const { artwork } = item; return (
                     <div key={cartKey(item)} className="flex gap-4">
