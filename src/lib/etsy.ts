@@ -1,4 +1,5 @@
 import type { ArtworkVariation, EtsyExtras } from '../types';
+import { convertEtsyUnit, formatDimensions, parseDimensions } from '../../shared/dimensions.js';
 
 export interface EtsyImage {
   listing_image_id?: number;
@@ -168,18 +169,28 @@ export async function fetchEtsyListings(apiKey: string, shopId: string): Promise
   return listings;
 }
 
-function pickDimensions(l: EtsyListing): string {
-  const unit = l.item_dimensions_unit ?? '';
-  const parts = [l.item_length, l.item_width, l.item_height].filter(n => typeof n === 'number' && n > 0);
-  if (parts.length >= 2) return `${parts.join(' × ')}${unit ? ' ' + unit : ''}`;
+// The artwork's size as numbers (so one entry also drives the shipping box). Empty when Etsy has no size to read.
+function etsyDimensions(l: EtsyListing): Record<string, number | string> {
+  const unit = l.item_dimensions_unit;
+  const given = [l.item_length, l.item_width, l.item_height].map(v => convertEtsyUnit(v as number, unit)).filter(Boolean) as { value: number; unit: 'in' | 'cm' }[];
 
-  const text = `${l.title}\n${l.description}`;
-  const labelled = text.match(/(?:size|dimensions?)\s*[:\-–]\s*([^\n]{2,80})/i);
-  if (labelled) return labelled[1].trim();
-  const xBy = text.match(/\d+(?:\.\d+)?\s*(?:"|”|in(?:ch(?:es)?)?|cm)?\s*[x×]\s*\d+(?:\.\d+)?\s*(?:"|”|in(?:ch(?:es)?)?|cm)?/i);
-  if (xBy) return xBy[0].trim();
-  const single = l.title.match(/\d+(?:\.\d+)?\s*(?:"|”|inch(?:es)?|cm)/i);
-  return single ? single[0].trim() : '';
+  let found: { length: number; width: number; depth: number | null; unit: 'in' | 'cm' } | null = null;
+  if (given.length >= 2) {
+    found = { length: given[0].value, width: given[1].value, depth: given[2]?.value ?? null, unit: given[0].unit };
+  } else {
+    const labelled = `${l.title}\n${l.description}`.match(/(?:size|dimensions?)\s*[:\-–]\s*([^\n]{2,80})/i)?.[1];
+    found = (labelled && parseDimensions(labelled)) || parseDimensions(l.title) || parseDimensions(l.description);
+  }
+  if (!found) return {};
+  const r = (n: number) => Math.round(n * 100) / 100;
+  const dim = { length: r(found.length), width: r(found.width), depth: found.depth ? r(found.depth) : null, unit: found.unit };
+  return {
+    dimensions: formatDimensions(dim),
+    dim_length: dim.length,
+    dim_width: dim.width,
+    ...(dim.depth ? { dim_depth: dim.depth } : {}),
+    dim_unit: dim.unit,
+  };
 }
 
 function pickMaterials(l: EtsyListing): string {
@@ -326,7 +337,8 @@ export function etsyListingToPayload(listing: EtsyListing) {
     title: listing.title.trim(),
     description: listing.description.slice(0, 5000),
     price,
-    dimensions: pickDimensions(listing),
+    // Only sent when Etsy has a size, so a refresh never wipes a size you entered yourself
+    ...etsyDimensions(listing),
     materials: pickMaterials(listing),
     images,
     video_url: extras.videos?.[0]?.video_url ?? null,

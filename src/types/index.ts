@@ -13,9 +13,12 @@ export interface Artwork {
   year?: number;
   video_url?: string;
   weight_oz?: number | null;
-  package_length?: number | null;
-  package_width?: number | null;
-  package_height?: number | null;
+  dim_length?: number | null;
+  dim_width?: number | null;
+  dim_depth?: number | null;
+  dim_unit?: 'in' | 'cm';
+  etsy_sync?: boolean;
+  etsy_synced_at?: string | null;
   quantity?: number;
   tags?: string[];
   variations?: ArtworkVariation[];

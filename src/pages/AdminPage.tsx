@@ -16,18 +16,21 @@ import toast from 'react-hot-toast';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { adminApi } from '../lib/adminApi';
 import { PromotionsPanel } from './admin/PromotionsPanel';
+import { formatDimensions, parseDimensions } from '../../shared/dimensions.js';
 import { fetchEtsyListings, etsyListingToPayload, etsyDiagnosticLine, etsyDiagnosticsReport, type EtsyListing } from '../lib/etsy';
 
 type AdminTab = 'artworks' | 'orders' | 'commissions' | 'promotions' | 'analytics';
 
 interface ArtworkFormState {
   title: string; description: string; story: string; price: string;
-  dimensions: string; materials: string; category: ArtworkCategory;
+  dimensionsText: string; materials: string; category: ArtworkCategory;
   images: string[]; video_url: string;
   availability: 'available' | 'sold' | 'reserved';
   framing: string; year: string;
   quantity: string; variations: ArtworkVariation[];
-  weight: string; pkgLength: string; pkgWidth: string; pkgHeight: string;
+  weight: string;
+  dimLength: string; dimWidth: string; dimDepth: string; dimUnit: 'in' | 'cm';
+  etsySync: boolean;
 }
 
 interface Order {
@@ -45,10 +48,10 @@ interface AnalyticsData {
 }
 
 const emptyArtwork: ArtworkFormState = {
-  title: '', description: '', story: '', price: '', dimensions: '', materials: '',
+  title: '', description: '', story: '', price: '', dimensionsText: '', materials: '',
   category: '', images: [], video_url: '', availability: 'available', framing: '',
   year: new Date().getFullYear().toString(), quantity: '1', variations: [],
-  weight: '', pkgLength: '', pkgWidth: '', pkgHeight: '',
+  weight: '', dimLength: '', dimWidth: '', dimDepth: '', dimUnit: 'in', etsySync: true,
 };
 
 const statusColors: Record<string, string> = {
@@ -210,6 +213,18 @@ function MediaUploader({
   );
 }
 
+// Size numbers for the form: the saved ones, or read from older text such as "80 × 100 cm"
+function sizeFields(a: Artwork) {
+  const num = (v: number | null | undefined) => (v != null ? String(v) : '');
+  if (a.dim_length || a.dim_width) {
+    return { dimLength: num(a.dim_length), dimWidth: num(a.dim_width), dimDepth: num(a.dim_depth), dimUnit: (a.dim_unit ?? 'in') as 'in' | 'cm' };
+  }
+  const parsed = parseDimensions(a.dimensions ?? '');
+  return parsed
+    ? { dimLength: String(parsed.length), dimWidth: String(parsed.width), dimDepth: parsed.depth ? String(parsed.depth) : '', dimUnit: parsed.unit }
+    : { dimLength: '', dimWidth: '', dimDepth: '', dimUnit: (a.dim_unit ?? 'in') as 'in' | 'cm' };
+}
+
 // ── Variations & inventory editor ──────────────────────────────────────────────
 function newVariationId() {
   return `v_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -330,6 +345,19 @@ function EtsyImportModal({
   const [sections, setSections] = useState<Record<number, string>>({});
   const [defaultSection, setDefaultSection] = useState('');
   const [connected, setConnected] = useState<boolean | null>(null);
+  // Etsy listing id -> the listing on this site that came from it
+  const [links, setLinks] = useState<Record<number, { id: string; sync: boolean }>>({});
+
+  const loadLinks = useCallback(async () => {
+    try {
+      const { data } = await adminApi<{ data: Artwork[] }>('artworks.list');
+      const map: Record<number, { id: string; sync: boolean }> = {};
+      (data || []).forEach(a => { if (a.etsy_listing_id) map[Number(a.etsy_listing_id)] = { id: a.id, sync: a.etsy_sync !== false }; });
+      setLinks(map);
+    } catch { /* the import still works without it */ }
+  }, []);
+
+  useEffect(() => { loadLinks(); }, [loadLinks]);
 
   useEffect(() => {
     fetch('/api/etsy-oauth?action=status')
@@ -358,28 +386,67 @@ function EtsyImportModal({
     setFetching(false);
   }
 
-  async function handleImport(listing: EtsyListing) {
+  // One listing: creates it, or refreshes the linked one. force = you clicked that exact listing, so update it even if sync is off.
+  async function importOne(listing: EtsyListing, force: boolean): Promise<'created' | 'updated' | 'skipped' | 'failed'> {
     setImporting(prev => new Set(prev).add(listing.listing_id));
     try {
       const chosen = sectionSlug(sections[listing.listing_id] ?? defaultSection);
-      const result = await adminApi<{ updated: boolean }>('artworks.etsy', {
+      const result = await adminApi<{ updated?: boolean; skipped?: boolean }>('artworks.etsy', {
         payload: etsyListingToPayload(listing),
-        category: chosen,
+        category: links[listing.listing_id] ? '' : chosen,
+        force,
       });
+      if (result.skipped) return 'skipped';
       setImported(prev => new Set(prev).add(listing.listing_id));
-      toast.success(`"${listing.title.slice(0, 40)}" ${result.updated ? 'updated' : 'imported'}.`);
-      onImported();
+      return result.updated ? 'updated' : 'created';
     } catch (err) {
-      toast.error((err as { message?: string })?.message ?? 'Import failed.');
+      toast.error(`${listing.title.slice(0, 40)}: ${(err as { message?: string })?.message ?? 'failed'}`);
+      return 'failed';
+    } finally {
+      setImporting(prev => { const s = new Set(prev); s.delete(listing.listing_id); return s; });
     }
-    setImporting(prev => { const s = new Set(prev); s.delete(listing.listing_id); return s; });
   }
 
-  async function handleImportAll() {
-    const pending = listings.filter(l => !imported.has(l.listing_id));
-    for (const listing of pending) {
-      await handleImport(listing);
+  async function handleImport(listing: EtsyListing) {
+    const outcome = await importOne(listing, true);
+    if (outcome === 'created' || outcome === 'updated') {
+      toast.success(`"${listing.title.slice(0, 40)}" ${outcome === 'created' ? 'imported' : 'refreshed'}.`);
+      await loadLinks();
+      onImported();
     }
+  }
+
+  const newListings = listings.filter(l => !links[l.listing_id]);
+  const linkedListings = listings.filter(l => links[l.listing_id]);
+  const refreshable = linkedListings.filter(l => links[l.listing_id].sync);
+  const missingOnEtsy = Object.keys(links).filter(id => listings.length > 0 && !listings.some(l => l.listing_id === Number(id))).length;
+
+  // Only listings that came from Etsy and have "update when I refresh" on; listings created on this site are never touched
+  async function refreshImported() {
+    let updated = 0, failed = 0;
+    for (const l of refreshable) {
+      const outcome = await importOne(l, false);
+      if (outcome === 'updated') updated++; else if (outcome === 'failed') failed++;
+    }
+    const skipped = linkedListings.length - refreshable.length;
+    toast.success(`Refreshed ${updated} Etsy listing${updated === 1 ? '' : 's'}${skipped ? `, skipped ${skipped} with sync off` : ''}${failed ? `, ${failed} failed` : ''}.`, { duration: 6000 });
+    await loadLinks();
+    onImported();
+  }
+
+  async function importNew() {
+    if (newListings.some(l => !sectionSlug(sections[l.listing_id] ?? defaultSection))) {
+      toast.error('Type a section for each new listing first (or set a default section).');
+      return;
+    }
+    let created = 0, failed = 0;
+    for (const l of newListings) {
+      const outcome = await importOne(l, true);
+      if (outcome === 'created') created++; else if (outcome === 'failed') failed++;
+    }
+    toast.success(`Imported ${created} new listing${created === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}.`, { duration: 6000 });
+    await loadLinks();
+    onImported();
   }
 
   return (
@@ -454,7 +521,10 @@ function EtsyImportModal({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex flex-wrap items-end gap-4">
-                  <p className="font-sans text-xs text-art-muted pb-2">{listings.length} listings found</p>
+                  <p className="font-sans text-xs text-art-muted pb-2">
+                    {listings.length} on Etsy · {linkedListings.length} already on your site
+                    {missingOnEtsy > 0 && <> · {missingOnEtsy} on your site {missingOnEtsy === 1 ? 'is' : 'are'} no longer active on Etsy (left unchanged)</>}
+                  </p>
                   <div className="w-48">
                     <Input label="Default section" value={defaultSection}
                       onChange={e => setDefaultSection(e.target.value)} placeholder="e.g. mandalas" />
@@ -470,22 +540,25 @@ function EtsyImportModal({
                   }}>
                     Copy diagnostics
                   </Button>
-                  <Button size="sm" variant="secondary" onClick={handleImportAll}>
-                    Import All
+                  <Button size="sm" variant="secondary" onClick={refreshImported} disabled={refreshable.length === 0 || importing.size > 0}>
+                    Refresh imported ({refreshable.length})
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={importNew} disabled={newListings.length === 0 || importing.size > 0}>
+                    Import new ({newListings.length})
                   </Button>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {listings.map(listing => {
+                  const link = links[listing.listing_id];
                   const done = imported.has(listing.listing_id);
                   const busy = importing.has(listing.listing_id);
                   const price = listing.price.amount / listing.price.divisor;
                   const thumb = listing.images?.[0]?.url_570xN || listing.images?.[0]?.url_fullxfull;
 
                   return (
-                    <div key={listing.listing_id}
-                      className={`border border-art-pale p-3 space-y-2 ${done ? 'opacity-60' : ''}`}>
+                    <div key={listing.listing_id} className="border border-art-pale p-3 space-y-2">
                       {thumb && (
                         <div className="aspect-square overflow-hidden bg-cream-100">
                           <img src={thumb} alt={listing.title}
@@ -498,27 +571,32 @@ function EtsyImportModal({
                       <p className="font-serif text-sm text-art-warm">
                         {listing.price.currency_code} {price.toFixed(2)}
                       </p>
+                      <p className={`font-sans text-[10px] ${link ? (link.sync ? 'text-green-700' : 'text-art-muted') : 'text-blue-700'}`}>
+                        {link ? (link.sync ? 'On your site · refreshes with Etsy' : 'On your site · sync off') : 'Not on your site yet'}
+                      </p>
                       <p className="font-sans text-[10px] text-art-muted">
                         {etsyDiagnosticLine(listing)}
                         {listing.videos && listing.videos.length > 0 ? ' · video' : ''}
                       </p>
-                      <input
-                        list="etsy-section-options"
-                        value={sections[listing.listing_id] ?? defaultSection}
-                        onChange={e => setSections(prev => ({ ...prev, [listing.listing_id]: e.target.value }))}
-                        placeholder="Section (e.g. hearts)"
-                        className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-xs py-1.5 focus:outline-none focus:border-art-charcoal"
-                      />
+                      {!link && (
+                        <input
+                          list="etsy-section-options"
+                          value={sections[listing.listing_id] ?? defaultSection}
+                          onChange={e => setSections(prev => ({ ...prev, [listing.listing_id]: e.target.value }))}
+                          placeholder="Section (e.g. hearts)"
+                          className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-xs py-1.5 focus:outline-none focus:border-art-charcoal"
+                        />
+                      )}
                       <button
                         onClick={() => handleImport(listing)}
-                        disabled={done || busy}
+                        disabled={busy}
                         className={`w-full font-sans text-[10px] tracking-widest uppercase py-1.5 border transition-colors ${
                           done
                             ? 'border-green-300 text-green-600 bg-green-50'
                             : 'border-art-light text-art-charcoal hover:border-art-charcoal hover:bg-cream-50'
                         }`}
                       >
-                        {busy ? 'Importing…' : done ? '✓ Imported' : 'Import'}
+                        {busy ? 'Working…' : done ? (link ? '✓ Refreshed' : '✓ Imported') : link ? 'Refresh this one' : 'Import'}
                       </button>
                     </div>
                   );
@@ -649,6 +727,7 @@ function AdminDashboard({
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, []);
 
   const [showEtsyImport, setShowEtsyImport] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'etsy' | 'site'>('all');
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -729,6 +808,8 @@ function AdminDashboard({
     setForm({ ...form, [field]: value });
   }
 
+  const editingArtwork = editingId ? artworks.find(a => a.id === editingId) : undefined;
+
   async function handleSave() {
     const variations = form.variations
       .map(v => ({
@@ -758,16 +839,20 @@ function AdminDashboard({
     try {
       const payload = {
         title: form.title, description: form.description, story: form.story || null,
-        price, dimensions: form.dimensions, materials: form.materials,
+        price, materials: form.materials,
+        // One size entry: the text shown on the listing is built from the numbers (old free text is kept only if no numbers are entered)
+        dimensions: formatDimensions({ length: Number(form.dimLength), width: Number(form.dimWidth), depth: Number(form.dimDepth), unit: form.dimUnit }) || form.dimensionsText,
+        dim_length: form.dimLength ? Number(form.dimLength) : null,
+        dim_width: form.dimWidth ? Number(form.dimWidth) : null,
+        dim_depth: form.dimDepth ? Number(form.dimDepth) : null,
+        dim_unit: form.dimUnit,
+        ...(editingArtwork?.etsy_listing_id ? { etsy_sync: form.etsySync } : {}),
         category, images: form.images.filter(Boolean),
         video_url: form.video_url || null,
         availability, framing: form.framing || null,
         year: parseInt(form.year) || null,
         quantity, variations,
         weight_oz: form.weight ? Number(form.weight) : null,
-        package_length: form.pkgLength ? Number(form.pkgLength) : null,
-        package_width: form.pkgWidth ? Number(form.pkgWidth) : null,
-        package_height: form.pkgHeight ? Number(form.pkgHeight) : null,
       };
       await adminApi('artworks.save', { id: editingId, payload });
       toast.success(editingId ? 'Artwork updated.' : 'Artwork added.');
@@ -791,7 +876,7 @@ function AdminDashboard({
   function startEdit(artwork: Artwork) {
     setForm({
       title: artwork.title, description: artwork.description, story: artwork.story || '',
-      price: artwork.price.toString(), dimensions: artwork.dimensions,
+      price: artwork.price.toString(), dimensionsText: artwork.dimensions,
       materials: artwork.materials, category: artwork.category,
       images: artwork.images.length ? artwork.images : [],
       video_url: artwork.video_url || '',
@@ -800,9 +885,8 @@ function AdminDashboard({
       quantity: artwork.quantity != null ? String(artwork.quantity) : '1',
       variations: (artwork.variations ?? []).map(v => ({ ...v, options: v.options.map(o => ({ ...o })) })),
       weight: artwork.weight_oz != null ? String(artwork.weight_oz) : '',
-      pkgLength: artwork.package_length != null ? String(artwork.package_length) : '',
-      pkgWidth: artwork.package_width != null ? String(artwork.package_width) : '',
-      pkgHeight: artwork.package_height != null ? String(artwork.package_height) : '',
+      ...sizeFields(artwork),
+      etsySync: artwork.etsy_sync !== false,
     });
     setEditingId(artwork.id); setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -989,8 +1073,32 @@ function AdminDashboard({
                       <p className="font-sans text-sm text-art-muted py-3">Set per variation below.</p>
                     </div>
                   )}
-                  <Input label="Dimensions" value={form.dimensions}
-                    onChange={e => updateForm('dimensions', e.target.value)} placeholder="80 × 100 cm" />
+                  <div className="sm:col-span-2 space-y-2">
+                    <label className="block text-[10px] tracking-widest uppercase text-art-muted font-sans">Size</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
+                      <Input label="Length" type="number" min="0" step="0.1" value={form.dimLength}
+                        onChange={e => updateForm('dimLength', e.target.value)} placeholder="18" />
+                      <Input label="Width" type="number" min="0" step="0.1" value={form.dimWidth}
+                        onChange={e => updateForm('dimWidth', e.target.value)} placeholder="18" />
+                      <Input label="Depth (optional)" type="number" min="0" step="0.1" value={form.dimDepth}
+                        onChange={e => updateForm('dimDepth', e.target.value)} placeholder="1" />
+                      <div>
+                        <label className="block text-[10px] tracking-widest uppercase text-art-muted mb-2 font-sans">Unit</label>
+                        <select value={form.dimUnit} onChange={e => updateForm('dimUnit', e.target.value)}
+                          className="w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-sm py-3 focus:outline-none focus:border-art-charcoal">
+                          <option value="in">inches</option>
+                          <option value="cm">centimetres</option>
+                        </select>
+                      </div>
+                    </div>
+                    <p className="font-sans text-xs text-art-muted">
+                      {formatDimensions({ length: Number(form.dimLength), width: Number(form.dimWidth), depth: Number(form.dimDepth), unit: form.dimUnit })
+                        ? <>Shown on the listing as <span className="text-art-charcoal">{formatDimensions({ length: Number(form.dimLength), width: Number(form.dimWidth), depth: Number(form.dimDepth), unit: form.dimUnit })}</span>. The shipping box is worked out from this size.</>
+                        : form.dimensionsText
+                          ? <>Current size text: “{form.dimensionsText}”. Enter length and width to replace it.</>
+                          : 'Enter length and width. For a round piece, use the diameter for both.'}
+                    </p>
+                  </div>
                   <Input label="Materials" value={form.materials}
                     onChange={e => updateForm('materials', e.target.value)} placeholder="Oil on linen" />
                   <Input label="Year" value={form.year} onChange={e => updateForm('year', e.target.value)} />
@@ -1018,29 +1126,29 @@ function AdminDashboard({
                   </div>
                   <Input label="Framing" value={form.framing}
                     onChange={e => updateForm('framing', e.target.value)} placeholder="Unframed" />
+                  <Input label="Shipping weight (oz)" type="number" min="0" step="0.1" value={form.weight}
+                    onChange={e => updateForm('weight', e.target.value)} placeholder="16" />
                   {form.variations.length === 0 && (
                     <Input label="Stock (how many available)" type="number" min="0" step="1" value={form.quantity}
                       onChange={e => updateForm('quantity', e.target.value)} placeholder="1" />
                   )}
                 </div>
-                <div className="border border-art-pale p-4 bg-white/40 space-y-3">
-                  <div>
-                    <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Packing (for shipping estimates)</p>
-                    <p className="font-sans text-xs text-art-muted mt-1 max-w-md">
-                      Weight and box size of one packed piece, including packaging. Leave blank to use the default size.
+                {editingArtwork?.etsy_listing_id && (
+                  <div className="border border-art-pale bg-white/40 p-4 space-y-2">
+                    <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Etsy listing</p>
+                    <p className="font-sans text-xs text-art-muted">
+                      This listing came from Etsy
+                      {editingArtwork.etsy_url && <> (<a href={editingArtwork.etsy_url} target="_blank" rel="noopener noreferrer" className="underline">view on Etsy</a>)</>}
+                      {editingArtwork.etsy_synced_at && <>. Last refreshed {formatDate(editingArtwork.etsy_synced_at)}</>}.
                     </p>
+                    <label className="flex items-start gap-2 font-sans text-sm text-art-charcoal">
+                      <input type="checkbox" className="mt-1" checked={form.etsySync} onChange={e => setForm({ ...form, etsySync: e.target.checked })} />
+                      <span>Update this listing when I refresh from Etsy
+                        <span className="block text-xs text-art-muted">Turn off to protect changes you made here. Listings you create on this site are never changed by Etsy.</span>
+                      </span>
+                    </label>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <Input label="Weight (oz)" type="number" min="0" step="0.1" value={form.weight}
-                      onChange={e => updateForm('weight', e.target.value)} placeholder="16" />
-                    <Input label="Length (in)" type="number" min="0" step="0.1" value={form.pkgLength}
-                      onChange={e => updateForm('pkgLength', e.target.value)} placeholder="14" />
-                    <Input label="Width (in)" type="number" min="0" step="0.1" value={form.pkgWidth}
-                      onChange={e => updateForm('pkgWidth', e.target.value)} placeholder="14" />
-                    <Input label="Height (in)" type="number" min="0" step="0.1" value={form.pkgHeight}
-                      onChange={e => updateForm('pkgHeight', e.target.value)} placeholder="2" />
-                  </div>
-                </div>
+                )}
                 <VariationEditor
                   variations={form.variations}
                   onChange={v => setForm({ ...form, variations: v })}
@@ -1071,13 +1179,33 @@ function AdminDashboard({
 
             {artworksLoading ? <PageLoader /> : (
               <div className="divide-y divide-art-pale">
-                {artworks.map(artwork => (
+                <div className="flex flex-wrap gap-2 pb-4">
+                  {([
+                    ['all', `All (${artworks.length})`],
+                    ['etsy', `From Etsy (${artworks.filter(a => a.etsy_listing_id).length})`],
+                    ['site', `Created here (${artworks.filter(a => !a.etsy_listing_id).length})`],
+                  ] as const).map(([key, text]) => (
+                    <button key={key} onClick={() => setSourceFilter(key)}
+                      className={`font-sans text-[10px] tracking-widest uppercase px-3 py-1.5 border transition-colors ${
+                        sourceFilter === key ? 'bg-art-charcoal text-art-white border-art-charcoal' : 'border-art-light text-art-muted hover:text-art-charcoal'
+                      }`}>
+                      {text}
+                    </button>
+                  ))}
+                </div>
+                {artworks.filter(a => sourceFilter === 'all' || (sourceFilter === 'etsy') === Boolean(a.etsy_listing_id)).map(artwork => (
                   <div key={artwork.id} className="flex items-center gap-3 py-3.5">
                     <div className="w-11 h-11 md:w-14 md:h-14 shrink-0 overflow-hidden bg-cream-100">
                       <img src={artwork.images[0]} alt={artwork.title} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-serif text-sm md:text-base text-art-charcoal truncate">{artwork.title}</p>
+                      {artwork.etsy_listing_id && (
+                        <p className="font-sans text-[10px] text-art-muted">
+                          <span className="tracking-widest uppercase bg-orange-50 text-orange-700 px-1.5 py-0.5 mr-1.5">Etsy</span>
+                          {artwork.etsy_sync === false ? 'sync off' : artwork.etsy_synced_at ? `refreshed ${formatDate(artwork.etsy_synced_at)}` : 'not refreshed yet'}
+                        </p>
+                      )}
                       <p className="font-sans text-xs text-art-muted truncate">{[sectionLabel(artwork.category), artwork.dimensions].filter(Boolean).join(' · ')}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="font-sans text-xs text-art-charcoal">

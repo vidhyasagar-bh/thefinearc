@@ -167,3 +167,32 @@ ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS coupon_code text;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS discount_amount numeric(10,2);
+
+-- 13. One size entry per artwork (length x width x depth + unit) and Etsy sync tracking
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS dim_length numeric;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS dim_width numeric;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS dim_depth numeric;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS dim_unit text NOT NULL DEFAULT 'in';
+ALTER TABLE public.artworks DROP CONSTRAINT IF EXISTS artworks_dim_unit_check;
+ALTER TABLE public.artworks ADD CONSTRAINT artworks_dim_unit_check CHECK (dim_unit IN ('in', 'cm'));
+-- Which listings came from Etsy: etsy_listing_id (already saved on import) marks them. These two control refreshing.
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS etsy_sync boolean NOT NULL DEFAULT true;
+ALTER TABLE public.artworks ADD COLUMN IF NOT EXISTS etsy_synced_at timestamptz;
+
+-- Fill the new size columns from sizes already typed as text, e.g. "80 × 100 cm" or "12 x 12 x 1 in"
+UPDATE public.artworks a SET
+  dim_length = (s.m)[1]::numeric,
+  dim_width  = (s.m)[2]::numeric,
+  dim_depth  = (s.m)[3]::numeric,
+  dim_unit   = CASE WHEN lower(coalesce((s.m)[4], '')) LIKE 'cm%' THEN 'cm' ELSE 'in' END
+FROM (
+  SELECT id, regexp_match(
+    dimensions,
+    '(\d+(?:\.\d+)?)\s*(?:"|”|in(?:ch(?:es)?)?|cm)?\s*(?:x|×|by)\s*(\d+(?:\.\d+)?)(?:\s*(?:"|”|in(?:ch(?:es)?)?|cm)?\s*(?:x|×|by)\s*(\d+(?:\.\d+)?))?\s*(cm|in(?:ch(?:es)?)?|"|”)?',
+    'i'
+  ) AS m
+  FROM public.artworks
+  WHERE dim_length IS NULL AND dimensions IS NOT NULL
+) s
+WHERE a.id = s.id AND s.m IS NOT NULL;
+-- The old package_length/width/height columns are no longer used: the shipping box is worked out from the size above.

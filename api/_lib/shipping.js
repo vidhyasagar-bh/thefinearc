@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { sb } from './supabase.js';
+import { boxInches } from '../../shared/dimensions.js';
 
 const SHIPPO_URL = 'https://api.goshippo.com/shipments/';
 const US_ZIP = /^\d{5}(-\d{4})?$/;
@@ -38,6 +39,7 @@ export function validateAddress(raw, countries) {
 }
 
 // Packs the cart into one box: weights add up, pieces stack (flat art), footprint is the biggest piece.
+// Each piece's box is its artwork size plus padding (SHIP_PACKING_PADDING_IN, default 2 inches all round).
 export async function buildParcel(lines) {
   const d = {
     weight: positive(process.env.SHIP_DEFAULT_WEIGHT_OZ, 16),
@@ -45,17 +47,21 @@ export async function buildParcel(lines) {
     width: positive(process.env.SHIP_DEFAULT_WIDTH_IN, 14),
     height: positive(process.env.SHIP_DEFAULT_HEIGHT_IN, 2),
   };
+  const padding = Number.isFinite(Number(process.env.SHIP_PACKING_PADDING_IN)) && process.env.SHIP_PACKING_PADDING_IN !== undefined && process.env.SHIP_PACKING_PADDING_IN !== ''
+    ? Math.max(0, Number(process.env.SHIP_PACKING_PADDING_IN)) : 2;
   const ids = [...new Set(lines.map(l => l.artworkId))];
-  const rows = await sb(`artworks?select=id,weight_oz,package_length,package_width,package_height&id=in.(${ids.join(',')})`);
+  const rows = await sb(`artworks?select=id,weight_oz,dim_length,dim_width,dim_depth,dim_unit&id=in.(${ids.join(',')})`);
   const byId = new Map((rows || []).map(r => [r.id, r]));
   let weight = 0, length = 0, width = 0, height = 0;
   for (const l of lines) {
     const r = byId.get(l.artworkId) || {};
     const qty = Math.max(1, Number(l.quantity) || 1);
+    const box = boxInches({ length: r.dim_length, width: r.dim_width, depth: r.dim_depth, unit: r.dim_unit }, padding)
+      ?? { length: d.length, width: d.width, height: d.height };
     weight += qty * positive(r.weight_oz, d.weight);
-    length = Math.max(length, positive(r.package_length, d.length));
-    width = Math.max(width, positive(r.package_width, d.width));
-    height += qty * positive(r.package_height, d.height);
+    length = Math.max(length, box.length);
+    width = Math.max(width, box.width);
+    height += qty * box.height;
   }
   const round = n => Math.ceil(n * 10) / 10;
   return { weight: round(weight), length: round(length), width: round(width), height: round(height) };

@@ -5,7 +5,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ARTWORK_FIELDS = [
   'title', 'description', 'story', 'price', 'dimensions', 'materials', 'category', 'images', 'video_url',
   'availability', 'framing', 'year', 'quantity', 'tags', 'variations', 'etsy_url', 'etsy_listing_id', 'etsy_data',
-  'weight_oz', 'package_length', 'package_width', 'package_height',
+  'weight_oz', 'dim_length', 'dim_width', 'dim_depth', 'dim_unit', 'etsy_sync',
 ];
 const AVAILABILITY = ['available', 'sold', 'reserved'];
 const FULFILMENT = ['processing', 'confirmed', 'preparing', 'shipped', 'delivered'];
@@ -82,6 +82,11 @@ function pickArtwork(input) {
   if ('category' in out) out.category = String(out.category || '').trim().toLowerCase();
   if ('images' in out && !(Array.isArray(out.images) && out.images.every(i => typeof i === 'string'))) throw new BadRequest('Invalid images.');
   if ('variations' in out && !Array.isArray(out.variations)) throw new BadRequest('Invalid variations.');
+  if ('dim_unit' in out && !['in', 'cm'].includes(out.dim_unit)) throw new BadRequest('Choose inches or centimetres.');
+  for (const k of ['dim_length', 'dim_width', 'dim_depth', 'weight_oz']) {
+    if (k in out && out[k] !== null && !(Number(out[k]) > 0)) throw new BadRequest('Sizes and weight must be greater than zero.');
+  }
+  if ('etsy_sync' in out) out.etsy_sync = Boolean(out.etsy_sync);
   return out;
 }
 
@@ -142,23 +147,27 @@ export default async function handler(req, res) {
         await sb(`artworks?id=eq.${body.id}`, { method: 'DELETE' });
         return res.status(200).json({ ok: true });
 
-      // Create or refresh one listing imported from Etsy. A re-import keeps your section, story, framing and year.
+      // Create or refresh one listing imported from Etsy. A refresh keeps your section, story, framing and year.
+      // Listings with "keep in sync" switched off are skipped unless force is set (an explicit click on that listing).
       case 'artworks.etsy': {
         const payload = pickArtwork(body.payload);
+        delete payload.etsy_sync; // never taken from the Etsy payload
         const listingId = Number(payload.etsy_listing_id);
         if (!Number.isInteger(listingId) || listingId <= 0) return res.status(400).json({ error: 'Invalid Etsy listing.' });
         const category = String(body.category || '').trim().toLowerCase();
-        const [existing] = await sb(`artworks?select=id&etsy_listing_id=eq.${listingId}`);
+        const [existing] = await sb(`artworks?select=id,etsy_sync&etsy_listing_id=eq.${listingId}`);
+        const stamp = { etsy_synced_at: new Date().toISOString() };
         if (existing) {
+          if (existing.etsy_sync === false && !body.force) return res.status(200).json({ ok: true, skipped: true });
           await sb(`artworks?id=eq.${existing.id}`, {
-            method: 'PATCH', body: JSON.stringify(category ? { ...payload, category } : { ...payload, category: undefined }),
+            method: 'PATCH', body: JSON.stringify({ ...payload, ...stamp, ...(category ? { category } : { category: undefined }) }),
           });
           return res.status(200).json({ ok: true, updated: true });
         }
         if (!category) return res.status(400).json({ error: 'Choose a section for new listings.' });
         await sb('artworks', {
           method: 'POST',
-          body: JSON.stringify({ story: null, framing: null, year: new Date().getFullYear(), ...payload, category }),
+          body: JSON.stringify({ story: null, framing: null, year: new Date().getFullYear(), ...payload, ...stamp, etsy_sync: true, category }),
         });
         return res.status(200).json({ ok: true, updated: false });
       }
