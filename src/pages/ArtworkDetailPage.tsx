@@ -275,7 +275,6 @@ export function ArtworkDetailPage() {
                     { label: 'Materials', value: artwork.materials },
                     { label: 'Dimensions', value: artwork.dimensions },
                     artwork.framing && { label: 'Framing', value: artwork.framing },
-                    extras?.who_made && { label: 'Made by', value: extras.who_made.replace(/_/g, ' ') },
                     processing && { label: 'Processing time', value: processing },
                     extras?.shipping?.origin_country_iso && { label: 'Ships from', value: extras.shipping.origin_country_iso },
                   ].filter((spec: any) => spec && spec.value).map((spec: any) => (
