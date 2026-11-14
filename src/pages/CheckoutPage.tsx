@@ -88,7 +88,10 @@ export function CheckoutPage() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.client_secret) throw new Error(data.error || 'Could not start checkout.');
+      if (!res.ok || !data.client_secret) {
+        console.error('Checkout error:', res.status, data);
+        throw new Error(data.detail ? `${data.error} (${data.detail})` : data.error || 'Could not start checkout.');
+      }
       setClientSecret(data.client_secret);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');

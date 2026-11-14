@@ -115,7 +115,9 @@ export default async function handler(req, res) {
     });
     return res.status(200).json({ client_secret: session.client_secret });
   } catch (err) {
-    console.error('[checkout] failed', err);
-    return res.status(500).json({ error: 'Could not start checkout. Please try again.' });
+    console.error('[checkout] failed', err.type, err.code, err.param, err.message);
+    // Stripe's own message (for example which parameter it rejected) contains nothing sensitive and speeds up fixing setup problems
+    const detail = typeof err?.type === 'string' && err.type.startsWith('Stripe') ? String(err.message).slice(0, 300) : undefined;
+    return res.status(500).json({ error: 'Could not start checkout. Please try again.', detail });
   }
 }
