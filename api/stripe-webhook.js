@@ -24,14 +24,19 @@ async function fulfill(stripe, sessionId) {
     .map(k => session.metadata[k].split('|'));
 
   const ship = session.collected_information?.shipping_details ?? session.shipping_details ?? null;
-  const addr = ship?.address ?? session.customer_details?.address ?? {};
+  const m = session.metadata ?? {};
+  const savedAddress = m.ship_line1
+    ? { line1: m.ship_line1, line2: m.ship_line2 || '', city: m.ship_city, state: m.ship_state, postal_code: m.ship_zip, country: m.ship_country }
+    : null;
+  // Prefer the address entered on our checkout page; Stripe's copy is the fallback
+  const addr = savedAddress ?? ship?.address ?? session.customer_details?.address ?? {};
   const items = lineItems.map((li, i) => ({
     artwork_id: refs[i]?.[0] ?? null,
     artwork_title: li.description,
     quantity: li.quantity,
     price: li.quantity ? li.amount_subtotal / 100 / li.quantity : 0,
   }));
-  const customerName = ship?.name || session.customer_details?.name || 'Customer';
+  const customerName = m.ship_name || ship?.name || session.customer_details?.name || 'Customer';
   // The price was quoted for the address entered on our checkout page; flag it if they changed it on Stripe's page
   const quotedZip = session.metadata?.ship_zip;
   const shippingNote = quotedZip && (

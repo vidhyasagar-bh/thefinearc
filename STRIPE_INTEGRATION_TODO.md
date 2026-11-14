@@ -41,11 +41,12 @@ You chose to keep your existing tax, shipping and order tracking, so these were 
 |-----------|---------|-----|
 | automatic_tax | `{ enabled: true }` (Studio says `false`) | You use Stripe Tax. |
 | shipping_options | the shipping rate the customer chose | Shipping estimate charged at checkout. |
-| shipping_address_collection | limited to the country quoted | Keeps the address consistent with the quote. |
+| shipping_address_collection | **not set** when shipping estimates are on; set (limited to your countries) when they are off | The address is entered on our checkout page, saved on a Stripe Customer (`customer`) and in `metadata`, so the payment form doesn't ask again and tax uses it. |
 | metadata | item ids, quantities, shipping quote | The webhook uses it to create the order and reduce stock. **Do not remove.** |
 | return_url | `/checkout/success?session_id={CHECKOUT_SESSION_ID}` | Replaces `success_url` / `cancel_url`, which embedded checkout does not use. |
 
-> **Check this in test mode first.** I could not run `ui_mode: "form"` against Stripe from the build environment.
+> **Check this in test mode first.** If Stripe says `shipping_options` needs `shipping_address_collection`, put `shipping_address_collection` back in the session call (the payment form will then ask for the address again).
+> I could not run `ui_mode: "form"` against Stripe from the build environment.
 > If creating a session fails, the error will name the parameter (most likely `shipping_address_collection`,
 > `shipping_options` or `automatic_tax`, which this mode may handle differently). Send the error message and the
 > parameter can be adjusted. To use the Studio values exactly, set `automatic_tax` to `{ enabled: false }` and remove

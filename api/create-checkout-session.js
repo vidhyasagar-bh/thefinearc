@@ -62,8 +62,11 @@ export default async function handler(req, res) {
       metadata[`item_${i}`] = `${art.id}|${l.variationId ?? ''}|${quantity}`;
     }
 
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-03-25.dahlia' });
+
     // Shipping: re-quote on the server so the customer can't pick a price the carrier didn't offer
     const cfg = shippingConfig();
+    let customerId;
     let shippingOptions;
     let allowedCountries = cfg.countries;
     if (cfg.enabled) {
@@ -94,9 +97,25 @@ export default async function handler(req, res) {
         ship_country: checked.address.country,
       });
       allowedCountries = [checked.address.country];
+
+      // Hand Stripe the address already entered on our page: tax is worked out from it and the payment form won't ask again
+      const a = checked.address;
+      const stripeAddress = {
+        line1: a.street1, ...(a.street2 ? { line2: a.street2 } : {}),
+        city: a.city, state: a.state, postal_code: a.zip, country: a.country,
+      };
+      const customer = await stripe.customers.create({
+        ...(a.name ? { name: a.name } : {}),
+        address: stripeAddress,
+        shipping: { name: a.name || 'Customer', address: stripeAddress },
+      });
+      customerId = customer.id;
+      // Kept on the session too, so the order record never depends on what Stripe echoes back
+      Object.assign(metadata, {
+        ship_name: a.name, ship_line1: a.street1, ship_line2: a.street2, ship_city: a.city,
+      });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-03-25.dahlia' });
     const proto = req.headers['x-forwarded-proto'] || 'https';
     const origin = process.env.SITE_URL || `${proto}://${req.headers.host}`;
     const session = await stripe.checkout.sessions.create({
@@ -105,7 +124,7 @@ export default async function handler(req, res) {
       line_items: lineItems,
       automatic_tax: { enabled: true },
       billing_address_collection: 'auto',
-      shipping_address_collection: { allowed_countries: allowedCountries },
+      ...(customerId ? { customer: customerId } : { shipping_address_collection: { allowed_countries: allowedCountries } }),
       ...(shippingOptions ? { shipping_options: shippingOptions } : {}),
       phone_number_collection: { enabled: false },
       submit_type: 'auto',
