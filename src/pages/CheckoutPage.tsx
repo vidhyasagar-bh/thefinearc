@@ -11,6 +11,7 @@ import { Input } from '../components/ui/Input';
 import { US_STATES } from '../utils/usStates';
 import { EmbeddedPaymentForm } from '../components/checkout/EmbeddedPaymentForm';
 import { AddressSuggestInput, addressSuggestionsAvailable } from '../components/checkout/AddressSuggestInput';
+import { useCartSync } from '../hooks/useCartSync';
 
 interface Rate { provider: string; service: string; token: string; amount: number; days: number | null; exp: number; sig: string }
 interface Address { name: string; street1: string; street2: string; city: string; state: string; zip: string; country: string }
@@ -31,6 +32,10 @@ export function CheckoutPage() {
   const [selected, setSelected] = useState<string>('');
   const [quoting, setQuoting] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  // What Stripe will charge for the items (cents) in the open payment form
+  const [sessionItemsTotal, setSessionItemsTotal] = useState<number | null>(null);
+  // While a payment form is open, check for price and stock changes every few seconds
+  useCartSync(clientSecret ? 10_000 : 60_000);
   // One search box first; the remaining fields appear once an address is chosen (or "enter manually" is clicked).
   // Without suggestions available, show every field straight away.
   const [addressStep, setAddressStep] = useState<'search' | 'details'>(addressSuggestionsAvailable ? 'search' : 'details');
@@ -54,6 +59,27 @@ export function CheckoutPage() {
   }));
   const rate = rates?.find(r => `${r.provider}|${r.token}` === selected);
   const estimatedTotal = cartTotal + (rate?.amount ?? 0);
+
+  function discardPaymentSession(notice?: string) {
+    if (clientSecret) {
+      // Closes the old session so it can't be paid by accident (e.g. from another tab)
+      fetch('/api/expire-checkout-session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_secret: clientSecret }),
+      }).catch(() => {});
+    }
+    setClientSecret(null);
+    setSessionItemsTotal(null);
+    if (notice) toast.error(notice, { duration: 8000 });
+  }
+
+  // The payment form was created with the prices of that moment. If what the page now shows differs from what
+  // Stripe would charge, reset the form so the customer never pays an amount that differs from the total shown.
+  useEffect(() => {
+    if (clientSecret && sessionItemsTotal !== null && Math.round(cartTotal * 100) !== sessionItemsTotal) {
+      discardPaymentSession('Prices or availability in your cart changed, so your payment form was reset. Please review your total and continue to payment again.');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartTotal, clientSecret, sessionItemsTotal]);
 
   useEffect(() => {
     if (addressStep === 'details' && focusApt.current) {
@@ -110,6 +136,7 @@ export function CheckoutPage() {
         throw new Error(data.detail ? `${data.error} (${data.detail})` : data.error || `Could not start checkout (server replied ${res.status}).`);
       }
       setClientSecret(data.client_secret);
+      setSessionItemsTotal(typeof data.items_total === 'number' ? data.items_total : null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     }
@@ -254,7 +281,7 @@ export function CheckoutPage() {
                         <EmbeddedPaymentForm clientSecret={clientSecret} onError={onPaymentError} />
                         <button
                           type="button"
-                          onClick={() => setClientSecret(null)}
+                          onClick={() => discardPaymentSession()}
                           className="font-sans text-xs text-art-muted hover:text-art-charcoal underline underline-offset-4 transition-colors"
                         >
                           Change shipping details

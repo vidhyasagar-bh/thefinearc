@@ -136,7 +136,9 @@ export default async function handler(req, res) {
         detail: `Stripe created the session (${session.id}, ui_mode ${session.ui_mode}) but sent no client secret. Fields returned: ${Object.keys(session).join(', ')}`.slice(0, 400),
       });
     }
-    return res.status(200).json({ client_secret: clientSecret });
+    // What Stripe will charge for the items (cents), so the page can tell if its own total has drifted
+    const itemsTotal = lineItems.reduce((sum, li) => sum + li.price_data.unit_amount * li.quantity, 0);
+    return res.status(200).json({ client_secret: clientSecret, items_total: itemsTotal });
   } catch (err) {
     console.error('[checkout] failed', err.type, err.code, err.param, err.message);
     // Stripe's own message (for example which parameter it rejected) contains nothing sensitive and speeds up fixing setup problems

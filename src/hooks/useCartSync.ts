@@ -4,7 +4,7 @@ import { useCartStore } from '../store/cartStore';
 import type { Artwork } from '../types';
 
 // Keeps items already in a customer's cart in line with the current listings (price, stock, sold out).
-export function useCartSync() {
+export function useCartSync(intervalMs = 60_000) {
   const ids = useCartStore(s => Array.from(new Set(s.items.map(i => i.artwork.id))).sort().join(','));
   const sync = useCartStore(s => s.syncWithListings);
 
@@ -19,11 +19,11 @@ export function useCartSync() {
 
     refresh();
     window.addEventListener('focus', refresh);
-    const timer = setInterval(refresh, 60_000);
+    const timer = setInterval(refresh, intervalMs);
     return () => {
       cancelled = true;
       window.removeEventListener('focus', refresh);
       clearInterval(timer);
     };
-  }, [ids, sync]);
+  }, [ids, sync, intervalMs]);
 }
