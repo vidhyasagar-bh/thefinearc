@@ -322,7 +322,7 @@ export function ArtworkDetailPage() {
 
                 {/* Shipping note */}
                 <p className="font-sans text-[11px] text-art-muted leading-relaxed border-t border-art-pale pt-5">
-                  All works are carefully packed and shipped with a certificate of authenticity. International shipping available. Contact us for custom framing quotes.
+                  All works are carefully packed and shipped with a certificate of authenticity. Contact us for custom framing quotes.
                 </p>
               </div>
             </FadeIn>

@@ -143,7 +143,7 @@ export function CartPage() {
                     </span>
                   </div>
                   <p className="font-sans text-[11px] text-art-muted leading-relaxed">
-                    Shipping calculated at checkout. International shipping available.
+                    Shipping calculated at checkout.
                   </p>
                   <Link to="/checkout" className="block">
                     <Button size="lg" className="w-full">
