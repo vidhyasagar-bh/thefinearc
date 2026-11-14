@@ -10,10 +10,10 @@ import { Lock } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { US_STATES } from '../utils/usStates';
 import { EmbeddedPaymentForm } from '../components/checkout/EmbeddedPaymentForm';
-import { AddressElementField, type ShippingAddress } from '../components/checkout/AddressElementField';
+import { AddressSuggestInput } from '../components/checkout/AddressSuggestInput';
 
 interface Rate { provider: string; service: string; token: string; amount: number; days: number | null }
-type Address = ShippingAddress;
+interface Address { name: string; street1: string; street2: string; city: string; state: string; zip: string; country: string }
 
 const selectClass =
   'w-full bg-transparent border-b border-art-light text-art-charcoal font-sans text-sm py-3 focus:outline-none focus:border-art-charcoal';
@@ -25,11 +25,6 @@ export function CheckoutPage() {
   const [processing, setProcessing] = useState(false);
   const [config, setConfig] = useState<{ enabled: boolean; countries: string[] } | null>(null);
   const [address, setAddress] = useState<Address>({ name: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' });
-  // 'stripe' = address suggestions as you type; falls back to plain fields if Stripe's script is unavailable
-  const [addressMode, setAddressMode] = useState<'stripe' | 'manual'>(
-    () => (window.Stripe && import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ? 'stripe' : 'manual')
-  );
-  const [addressReady, setAddressReady] = useState(false);
   const [rates, setRates] = useState<Rate[] | null>(null);
   const [selected, setSelected] = useState<string>('');
   const [quoting, setQuoting] = useState(false);
@@ -58,15 +53,6 @@ export function CheckoutPage() {
     setRates(null);
     setSelected('');
   }
-
-  const onAddressChange = useCallback((a: Address | null) => {
-    setRates(null);
-    setSelected('');
-    setAddressReady(Boolean(a));
-    if (a) setAddress(a);
-  }, []);
-
-  const onAddressUnavailable = useCallback(() => setAddressMode('manual'), []);
 
   async function getRates(e: React.FormEvent) {
     e.preventDefault();
@@ -145,26 +131,26 @@ export function CheckoutPage() {
                     <form onSubmit={getRates} className="space-y-6">
                       <fieldset disabled={Boolean(clientSecret)} className="space-y-6 border-0 p-0 m-0 min-w-0">
                       <h2 className="font-sans text-[10px] tracking-widest uppercase text-art-muted">Where should we ship?</h2>
-                      {addressMode === 'stripe' ? (
-                        clientSecret ? (
-                          <div className="font-sans text-sm text-art-charcoal leading-relaxed">
-                            <p>{address.name}</p>
-                            <p>{address.street1}{address.street2 ? `, ${address.street2}` : ''}</p>
-                            <p>{address.city}, {address.state} {address.zip}</p>
-                          </div>
-                        ) : (
-                          <AddressElementField
-                            countries={config.countries}
-                            initial={address}
-                            onChange={onAddressChange}
-                            onUnavailable={onAddressUnavailable}
-                          />
-                        )
-                      ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div className="sm:col-span-2">
-                          <Input label="Street address *" value={address.street1} required
-                            onChange={e => updateAddress('street1', e.target.value)} />
+                          <Input label="Full name" value={address.name} autoComplete="name"
+                            onChange={e => updateAddress('name', e.target.value)} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <AddressSuggestInput
+                            value={address.street1}
+                            countries={config.countries}
+                            onChange={v => updateAddress('street1', v)}
+                            onPick={picked => {
+                              setAddress(prev => ({ ...prev, ...picked, country: config.countries.includes(picked.country) ? picked.country : prev.country }));
+                              setRates(null);
+                              setSelected('');
+                            }}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <Input label="Apartment, suite, etc." value={address.street2}
+                            onChange={e => updateAddress('street2', e.target.value)} />
                         </div>
                         <Input label="City *" value={address.city} required
                           onChange={e => updateAddress('city', e.target.value)} />
@@ -190,8 +176,7 @@ export function CheckoutPage() {
                           </select>
                         </div>
                       </div>
-                      )}
-                      <Button type="submit" variant="secondary" size="lg" disabled={quoting || (addressMode === 'stripe' && !addressReady)} className="w-full sm:w-auto">
+                      <Button type="submit" variant="secondary" size="lg" disabled={quoting} className="w-full sm:w-auto">
                         {quoting ? 'Getting prices…' : rates ? 'Update shipping prices' : 'See shipping options'}
                       </Button>
 
