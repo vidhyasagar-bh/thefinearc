@@ -11,7 +11,7 @@ export function ArtistIntro() {
             <div className="relative">
               <div className="aspect-[1663/2000] overflow-hidden bg-cream-200">
                 <img
-                  src="/artist.jpg"
+                  src="/HPArtist1.jpeg"
                   alt="The artist with her hand-painted mandala artworks"
                   className="w-full h-full object-cover"
                 />
@@ -23,9 +23,6 @@ export function ArtistIntro() {
           {/* Text */}
           <FadeIn direction="right" delay={0.2}>
             <div className="space-y-7 lg:max-w-lg">
-              <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
-                The Artist
-              </p>
               <div className="space-y-4 font-sans text-sm text-art-warm leading-relaxed">
                 <p>
                   Hi, I’m Leela, the heart behind The Fine Arc. I’m a New Jersey-based artist, a wife, and a mom to two wonderful girls who keep my days full of love, laughter, and a little chaos!

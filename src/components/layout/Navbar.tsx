@@ -59,11 +59,11 @@ export function Navbar() {
             <Link
               to="/"
               className={cn(
-                'font-serif text-lg md:text-xl font-light tracking-widest transition-colors duration-300',
+                'font-serif text-lg md:text-xl font-light tracking-widest whitespace-nowrap transition-colors duration-300',
                 isTransparent ? 'text-art-white' : 'text-art-charcoal'
               )}
             >
-              The Fine Arc
+              The Fine Arc <em className="tracking-normal">by Leela</em>
             </Link>
 
             {/* Desktop nav */}
@@ -133,7 +133,7 @@ export function Navbar() {
                 to="/"
                 className="font-serif text-3xl font-light text-art-charcoal"
               >
-                The Fine Arc
+                The Fine Arc <em>by Leela</em>
               </Link>
               <div className="flex flex-col items-center gap-7 mt-4">
                 {navLinks.map(link => (
