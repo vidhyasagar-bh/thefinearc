@@ -51,22 +51,25 @@ export function AboutPage() {
                     Artist Statement
                   </p>
                   <h2 className="font-serif text-3xl md:text-5xl font-light text-art-charcoal leading-tight">
-                    I make things that take time to understand.
+                    Art has been a constant thread throughout my life.
                   </h2>
                 </div>
 
                 <div className="space-y-6 font-sans text-sm text-art-warm leading-relaxed max-w-lg">
                   <p>
-                    I came to painting through drawing, and to drawing through long hours of looking at things without trying to record them. The work began when I stopped trying to capture and started trying to understand.
+                    Some of my earliest memories are of watching my father sketch—the quiet assurance in his hands, the way a simple pencil could transform a blank page into something full of life. Growing up in a small town in India, creativity was woven into everyday moments. I found joy in drawing houses, trees, mangoes, and intricate patterns, never realizing how deeply those early experiences would shape me.
                   </p>
                   <p>
-                    My paintings are slow. Not because I intend them to be, but because the subjects I'm interested in — light in rooms, the weight of silence, the texture of ordinary time — resist being hurried.
+                    As life evolved and I moved to the United States, art gradually slipped into the background. Yet it never truly left. Years later, through simple moments of coloring with my daughters and rediscovering creativity during the pandemic, I found myself returning to what had always felt familiar.
                   </p>
                   <p>
-                    I work in oil and watercolour, in graphite and gouache. I return to the same subjects with different eyes. I am less interested in originality than in depth.
+                    In September 2024, I made the conscious decision to begin creating again. What started as exploration soon became a dedicated practice of learning, experimenting, and refining my craft. It was during this journey that I discovered mandala art—and immediately felt a profound connection to its rhythm, precision, and quiet beauty.
                   </p>
                   <p>
-                    Each work is made once, offered once. I don't reproduce my paintings. The object itself is the point — its weight, its marks, its evidence of time spent.
+                    Today, my work is defined by intricate detail, harmonious color, and thoughtful composition. Every piece is created with patience and intention, inviting moments of stillness, reflection, and connection.
+                  </p>
+                  <p>
+                    For me, creating art is more than an artistic practice; it is a return to something deeply familiar—a lifelong conversation with creativity that had been waiting to be rediscovered.
                   </p>
                 </div>
               </div>

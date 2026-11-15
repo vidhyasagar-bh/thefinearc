@@ -26,17 +26,15 @@ export function ArtistIntro() {
               <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted">
                 The Artist
               </p>
-              <h2 className="font-serif text-4xl md:text-5xl font-light text-art-charcoal leading-tight">
-                Made slowly,
-                <br />
-                <em>with intention.</em>
-              </h2>
               <div className="space-y-4 font-sans text-sm text-art-warm leading-relaxed">
                 <p>
-                  I make paintings and drawings that begin with long hours of looking — at light, at stillness, at the overlooked beauty of ordinary spaces.
+                  Hi, I’m Leela, the heart behind The Fine Arc. I’m a New Jersey-based artist, a wife, and a mom to two wonderful girls who keep my days full of love, laughter, and a little chaos!
                 </p>
                 <p>
-                  Each work is a singular object. Not a series, not a reproduction. Something made once, to outlast the moment it came from.
+                  Outside of painting, I love cooking, baking, dancing, and enjoying the little moments with my family. One of my greatest joys is watching my girls develop their own love for art and creativity.
+                </p>
+                <p>
+                  My artwork is inspired by nature, soft colors, and the beauty of little details. From intricate mandalas to delicate florals, I love exploring different styles and creating pieces that feel soft, timeless, and full of character.
                 </p>
               </div>
               <Link

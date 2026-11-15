@@ -21,7 +21,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="font-serif text-[1.65rem] leading-tight sm:text-3xl md:text-4xl lg:text-5xl font-light text-white max-w-3xl text-balance"
+            className="font-serif text-[1.2375rem] leading-tight sm:text-[1.40625rem] md:text-[1.6875rem] lg:text-[2.25rem] font-light text-white max-w-3xl text-balance"
           >
             Art that speaks in <em>quiet details.</em>
           </motion.h1>
