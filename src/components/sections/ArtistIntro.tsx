@@ -9,7 +9,7 @@ export function ArtistIntro() {
           {/* Image */}
           <FadeIn direction="left">
             <div className="relative">
-              <div className="overflow-hidden bg-cream-200">
+              <div className="aspect-[891/1280] overflow-hidden bg-cream-200">
                 <img
                   src="/HPArtist1.jpeg"
                   alt="The artist with her hand-painted mandala artworks"
