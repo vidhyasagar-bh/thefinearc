@@ -7,8 +7,8 @@ export function Hero() {
       {/* Background image */}
       <div className="absolute inset-0">
         <img
-          src="https://mvmuqynhqfzwvrfcwcwf.supabase.co/storage/v1/object/public/artwork-images/hero.png"
-          alt="Featured artwork"
+          src="/PHOTO-2026-11-15-06-28-02.jpg"
+          alt="Blue and white floral mandala artwork on a wooden easel"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/65 md:from-black/40 md:via-black/30 md:to-black/75" />
@@ -21,9 +21,9 @@ export function Hero() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="font-serif text-[1.65rem] leading-tight sm:text-3xl md:text-4xl lg:text-5xl font-light text-white whitespace-nowrap"
+            className="font-serif text-[1.65rem] leading-tight sm:text-3xl md:text-4xl lg:text-5xl font-light text-white max-w-3xl text-balance"
           >
-            Art that stays <em>with you.</em>
+            Art that speaks in <em>quiet details.</em>
           </motion.h1>
 
           <motion.p
@@ -32,7 +32,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.75 }}
             className="mt-5 font-sans text-sm text-white/55 max-w-xs md:max-w-sm leading-relaxed"
           >
-            Each piece is a singular object, made slowly and with intention — to live in your home for a lifetime.
+            Thoughtfully created, one delicate detail at a time.
           </motion.p>
 
           <motion.div

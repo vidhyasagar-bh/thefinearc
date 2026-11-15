@@ -1,0 +1,32 @@
+name: Website checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  website:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:typecheck
+      - run: npm test
+      # Keep the existing lint failure visible without preventing browser execution.
+      - run: npm run lint
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: website-evidence
+          path: |
+            /tmp/finearc-e2e-results
+            /tmp/finearc-e2e-results.json
+          retention-days: 7

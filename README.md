@@ -83,3 +83,22 @@ The `vercel.json` handles client-side routing rewrites automatically.
 - **Colors:** warm whites, cream, charcoal, muted earth tones
 - **Motion:** Framer Motion — slow, elegant fade/slide reveals
 - **Spacing:** generous whitespace, editorial composition
+
+## Development validation
+
+See [development and test documentation](docs/DEVELOPMENT.md) for the architecture,
+API/payment review, isolated Playwright workflow, known issues, and Vercel preview
+limitations. See [AGENTS.md](AGENTS.md) for future Codex task conventions and safety
+requirements.
+
+```bash
+npm ci
+npm run build
+npm run test:typecheck
+npm test
+npm run lint
+```
+
+Browser tests cover desktop, tablet and mobile. Payments and backend writes are
+simulated; no real cards, charges, orders or production services are used. Real
+Stripe test-mode integration requires a separately isolated environment.
