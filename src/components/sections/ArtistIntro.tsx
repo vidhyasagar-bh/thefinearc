@@ -8,7 +8,7 @@ export function ArtistIntro() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center">
           {/* Image */}
           <FadeIn direction="left">
-            <div className="relative w-1/2 mx-auto scale-[1.3]">
+            <div className="relative w-1/2 mx-auto scale-[1.69]">
               <div className="aspect-[891/1280] overflow-hidden bg-cream-200">
                 <img
                   src="/HPArtist1.jpeg"
@@ -16,7 +16,6 @@ export function ArtistIntro() {
                   className="w-full h-auto"
                 />
               </div>
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 md:w-48 md:h-48 bg-cream-200 -z-10 hidden sm:block" />
             </div>
           </FadeIn>
 
