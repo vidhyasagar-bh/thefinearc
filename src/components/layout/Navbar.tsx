@@ -10,7 +10,6 @@ import { cn } from '../../utils/format';
 const navLinks = [
   { label: 'Gallery', href: '/gallery' },
   { label: 'About', href: '/about' },
-  { label: 'Commissions', href: '/commissions' },
   { label: 'Contact', href: '/contact' },
 ];
 

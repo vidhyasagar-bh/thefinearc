@@ -8,30 +8,30 @@ import { InstagramIcon } from '../components/ui/Icons';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
-
-
 export function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  function update(field: string, value: string) {
+  function update(field: keyof typeof form, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!supabaseConfigured) {
+      toast.error('Please email thefinearc@gmail.com to get in touch.');
+      return;
+    }
     setSubmitting(true);
     try {
-      if (supabaseConfigured) {
-        const { error } = await supabase.from('contact_messages').insert({
-          name: form.name,
-          email: form.email,
-          subject: form.subject || null,
-          message: form.message,
-        });
-        if (error) throw error;
-      }
+      const { error } = await supabase.from('contact_messages').insert({
+        name: form.name,
+        email: form.email,
+        subject: form.subject || null,
+        message: form.message,
+      });
+      if (error) throw error;
       setSubmitted(true);
     } catch {
       toast.error('Something went wrong. Please email us directly.');
@@ -42,23 +42,30 @@ export function ContactPage() {
 
   return (
     <Layout>
-      <div className="pt-32 md:pt-40 pb-24 md:pb-40 px-6 md:px-12 lg:px-20">
-        <div className="max-w-8xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 lg:gap-32">
-          {/* Left */}
-          <FadeIn direction="left">
-            <div className="space-y-10">
-              <div>
-                <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-4">
-                  Get in touch
-                </p>
-                <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-light text-art-charcoal leading-tight">
-                  Let's talk.
-                </h1>
-              </div>
-              <p className="font-sans text-sm text-art-warm leading-relaxed max-w-sm">
-                Whether you have a question about an available work, are interested in a commission, or simply want to say hello — I'd love to hear from you.
-              </p>
+      <div className="pt-32 md:pt-40 pb-20 md:pb-28 px-6 md:px-12 lg:px-20 bg-cream-100">
+        <div className="max-w-8xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-end">
+          <FadeIn>
+            <p className="font-sans text-[10px] tracking-widest uppercase text-art-muted mb-4">Get in touch</p>
+            <h1 className="font-serif text-5xl md:text-6xl font-light text-art-charcoal leading-tight">
+              Let’s <em>connect.</em>
+            </h1>
+          </FadeIn>
+          <FadeIn delay={0.15}>
+            <p className="font-sans text-sm text-art-warm leading-relaxed max-w-md">
+              Have a question, an idea, or just want to say hello? I’d love to hear from you.
+            </p>
+          </FadeIn>
+        </div>
+      </div>
 
+      <section className="py-24 md:py-40 px-6 md:px-12 lg:px-20 bg-art-white">
+        <div className="max-w-8xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 lg:gap-32">
+          <FadeIn direction="left">
+            <div className="space-y-7">
+              <h2 className="font-serif text-3xl md:text-4xl font-light text-art-charcoal">Send me a message</h2>
+              <p className="font-sans text-sm text-art-warm leading-relaxed max-w-sm">
+                Use the form or reach out by email or Instagram. For general questions, collaborations, or anything else, you’re welcome here.
+              </p>
               <div className="space-y-5 pt-4">
                 <a
                   href="mailto:thefinearc@gmail.com"
@@ -81,16 +88,6 @@ export function ContactPage() {
                   </span>
                 </a>
               </div>
-
-              <div className="pt-6 hidden lg:block">
-                <div className="aspect-[4/3] overflow-hidden bg-cream-100">
-                  <img
-                    src="https://picsum.photos/seed/contact-studio/1000/750"
-                    alt="Studio"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
             </div>
           </FadeIn>
 
@@ -109,12 +106,16 @@ export function ContactPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <Input
                     label="Name *"
+                    aria-label="Name"
+                    name="name"
                     value={form.name}
                     onChange={e => update('name', e.target.value)}
                     required
                   />
                   <Input
                     label="Email *"
+                    aria-label="Email"
+                    name="email"
                     type="email"
                     value={form.email}
                     onChange={e => update('email', e.target.value)}
@@ -123,11 +124,15 @@ export function ContactPage() {
                 </div>
                 <Input
                   label="Subject"
+                  aria-label="Subject"
+                  name="subject"
                   value={form.subject}
                   onChange={e => update('subject', e.target.value)}
                 />
                 <Textarea
                   label="Message *"
+                  aria-label="Message"
+                  name="message"
                   value={form.message}
                   onChange={e => update('message', e.target.value)}
                   rows={6}
@@ -142,7 +147,7 @@ export function ContactPage() {
             )}
           </FadeIn>
         </div>
-      </div>
+      </section>
     </Layout>
   );
 }

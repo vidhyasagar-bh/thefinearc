@@ -42,7 +42,6 @@ export function Footer() {
               {[
                 { label: 'Gallery', href: '/gallery' },
                 { label: 'About the Artist', href: '/about' },
-                { label: 'Commissions', href: '/commissions' },
                 { label: 'Contact', href: '/contact' },
               ].map(link => (
                 <Link

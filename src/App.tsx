@@ -1,13 +1,12 @@
 import { Component } from 'react';
 import type { ReactNode } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ScrollToTop } from './components/ui/ScrollToTop';
 import { HomePage } from './pages/HomePage';
 import { GalleryPage } from './pages/GalleryPage';
 import { ArtworkDetailPage } from './pages/ArtworkDetailPage';
 import { AboutPage } from './pages/AboutPage';
-import { CommissionsPage } from './pages/CommissionsPage';
 import { ContactPage } from './pages/ContactPage';
 import { CartPage } from './pages/CartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
@@ -91,7 +90,7 @@ export default function App() {
               <Route path="/gallery" element={<GalleryPage />} />
               <Route path="/artwork/:id" element={<ArtworkDetailPage />} />
               <Route path="/about" element={<AboutPage />} />
-              <Route path="/commissions" element={<CommissionsPage />} />
+              <Route path="/commissions" element={<Navigate to="/contact" replace />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/cart" element={<CartPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />

@@ -315,9 +315,9 @@ export function ArtworkDetailPage() {
                       <p className="font-sans text-sm text-art-muted">
                         This work is no longer available.
                       </p>
-                      <Link to="/commissions">
+                      <Link to="/contact">
                         <Button variant="secondary" size="lg" className="w-full">
-                          Enquire about a Commission
+                          Get in Touch
                         </Button>
                       </Link>
                     </div>
