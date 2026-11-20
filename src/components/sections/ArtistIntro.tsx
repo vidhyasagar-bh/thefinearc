@@ -3,16 +3,16 @@ import { FadeIn } from '../ui/FadeIn';
 
 export function ArtistIntro() {
   return (
-    <section className="py-28 md:py-40 bg-cream-100">
+    <section className="py-8 bg-cream-100">
       <div className="max-w-8xl mx-auto px-6 md:px-12 lg:px-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-24 items-center">
           {/* Image */}
           <FadeIn direction="left">
-            <div className="relative w-1/2 mx-auto scale-[1.69]">
+            <div className="w-[65%] lg:w-[72%] mx-auto">
               <div className="aspect-[891/1280] overflow-hidden bg-cream-200">
                 <img
                   src="/HPArtist1.jpeg"
-                  alt="The artist with her hand-painted mandala artworks"
+                  alt="Leela outdoors"
                   className="w-full h-auto"
                 />
               </div>

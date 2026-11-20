@@ -56,7 +56,7 @@ export function FeaturedCollection() {
         </FadeIn>
 
         {/* Mobile carousel — one card at a time */}
-        <div className="md:hidden px-6">
+        <div className="md:hidden w-full max-w-[21rem] mx-auto px-6">
           <div className="relative">
             {/* Card */}
             <div className="overflow-hidden">
@@ -116,7 +116,7 @@ export function FeaturedCollection() {
         {/* Desktop grid */}
         <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-14 px-12 lg:px-20">
           {featured.map((artwork, i) => (
-            <FadeIn key={artwork.id} delay={i * 0.12}>
+            <FadeIn key={artwork.id} delay={i * 0.12} className="w-full max-w-[17rem] mx-auto">
               <ArtworkCard artwork={artwork} index={i} />
             </FadeIn>
           ))}

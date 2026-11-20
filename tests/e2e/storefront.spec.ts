@@ -127,3 +127,25 @@ test('checkout summary title and price must not overlap', async ({ page }, info)
   await page.screenshot({ path: info.outputPath('checkout-summary.png'), fullPage: true, animations: 'disabled' });
   expect(overlap, 'summary title overlaps item price').toBe(false);
 });
+
+test('About gallery cycles through artworks and opens the selected piece', async ({ page }) => {
+  await page.goto('/about');
+  await expect(page.getByRole('heading', { name: 'Meet The Artist' })).toBeVisible();
+
+  const gallery = page.getByRole('region', { name: 'Gallery', exact: true });
+  const carousel = gallery.getByRole('group', { name: 'Selected artworks' });
+  const artwork = carousel.getByRole('link');
+  await expect(artwork).toHaveAccessibleName('Whisper of the Tide');
+
+  await carousel.getByRole('button', { name: 'Previous artwork' }).click();
+  await expect(artwork).toHaveAccessibleName('Threshold');
+
+  await carousel.getByRole('button', { name: 'Next artwork' }).click();
+  await expect(artwork).toHaveAccessibleName('Whisper of the Tide');
+  await carousel.getByRole('button', { name: 'Next artwork' }).click();
+  await expect(artwork).toHaveAccessibleName('Still Morning');
+
+  await artwork.click();
+  await expect(page).toHaveURL(/\/artwork\/2$/);
+  await expect(page.getByRole('heading', { name: 'Still Morning' })).toBeVisible();
+});
